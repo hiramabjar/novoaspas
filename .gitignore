@@ -37,4 +37,9 @@ yarn-error.log*
 next-env.d.ts
 
 # Prisma
-/prisma/migrations/ 
+/prisma/migrations/
+.env*.local
+
+# IDE
+.vscode/
+.idea/ 
