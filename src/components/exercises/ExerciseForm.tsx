@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LANGUAGES, LEVELS } from '@/lib/constants'
-import type { Exercise } from '@/types/exercise'
+import type { ExerciseWithRelations } from '@/types/exercise'
 
 const exerciseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -28,56 +28,70 @@ const exerciseSchema = z.object({
 
 type ExerciseFormData = z.infer<typeof exerciseSchema>
 
-interface ExerciseFormProps {
-  exercise?: Exercise
-  onSubmit: (data: ExerciseFormData) => Promise<void>
+export interface ExerciseFormProps {
+  exercise?: ExerciseWithRelations
+  onSubmit?: (data: ExerciseFormData) => Promise<void>
+  onSuccess?: () => void
 }
 
-export function ExerciseForm({ exercise, onSubmit }: ExerciseFormProps) {
+export function ExerciseForm({ exercise, onSubmit, onSuccess }: ExerciseFormProps) {
   const [questions, setQuestions] = useState<any[]>(
-    exercise?.questions.map(q => ({
-      ...q,
-      options: exercise.type === 'dictation' ? [] : JSON.parse(q.options)
+    exercise?.questions?.map(q => ({
+      question: q.question,
+      options: q.options,
+      correctAnswer: q.correctAnswer
     })) || []
   )
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ExerciseFormData>({
+  const form = useForm<ExerciseFormData>({
     resolver: zodResolver(exerciseSchema),
-    defaultValues: exercise || {
+    defaultValues: exercise ? {
+      title: exercise.title,
+      description: exercise.description,
+      content: exercise.content,
+      type: exercise.type as 'reading' | 'listening' | 'dictation',
+      languageId: exercise.languageId,
+      levelId: exercise.levelId,
+      questions: exercise.questions
+    } : {
+      title: '',
+      description: '',
+      content: '',
+      type: 'reading',
+      languageId: '',
+      levelId: '',
       questions: []
     }
   })
+
+  const exerciseType = form.watch('type')
 
   useEffect(() => {
     if (exercise) {
       Object.entries(exercise).forEach(([key, value]) => {
         if (key !== 'questions') {
-          setValue(key as keyof ExerciseFormData, value)
+          form.setValue(key as keyof ExerciseFormData, value)
         }
       })
     }
-  }, [exercise, setValue])
+  }, [exercise, form])
 
   const handleAddQuestion = () => {
-    const newQuestion = {
-      question: exercise?.type === 'dictation' ? 'Digite o que você ouviu:' : '',
-      options: exercise?.type === 'dictation' ? [] : ['', '', '', ''],
-      correctAnswer: ''
-    }
-    setQuestions([...questions, newQuestion])
+    setQuestions([...questions, { question: '', options: [], correctAnswer: '' }])
+    form.setValue('questions', [...questions, { question: '', options: [], correctAnswer: '' }])
   }
 
   const handleRemoveQuestion = (index: number) => {
-    setQuestions(questions.filter((_, i) => i !== index))
+    const newQuestions = questions.filter((_, i) => i !== index)
+    setQuestions(newQuestions)
+    form.setValue('questions', newQuestions)
   }
 
-  const handleQuestionChange = (index: number, field: string, value: string) => {
+  const handleQuestionChange = (index: number, field: string, value: any) => {
     const newQuestions = [...questions]
-    newQuestions[index] = {
-      ...newQuestions[index],
-      [field]: value
-    }
+    newQuestions[index] = { ...newQuestions[index], [field]: value }
     setQuestions(newQuestions)
+    form.setValue('questions', newQuestions)
   }
 
   const handleOptionChange = (questionIndex: number, optionIndex: number, value: string) => {
@@ -92,44 +106,42 @@ export function ExerciseForm({ exercise, onSubmit }: ExerciseFormProps) {
   }
 
   const handleFormSubmit = async (data: ExerciseFormData) => {
-    const formattedData = {
-      ...data,
-      questions: questions.map(q => ({
-        ...q,
-        options: exercise?.type === 'dictation' 
-          ? JSON.stringify([q.correctAnswer])
-          : JSON.stringify(q.options)
-      }))
+    try {
+      if (onSubmit) {
+        await onSubmit(data)
+        if (onSuccess) {
+          onSuccess()
+        }
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error)
     }
-    await onSubmit(formattedData)
   }
 
-  const exerciseType = exercise?.type || 'reading'
-
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-1">Título</label>
           <Input
-            {...register('title')}
+            {...form.register('title')}
             placeholder="Digite o título do exercício"
             className="bg-white border-gray-200"
           />
-          {errors.title && (
-            <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>
+          {form.formState.errors.title && (
+            <p className="text-red-500 text-sm mt-1">{form.formState.errors.title.message}</p>
           )}
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">Descrição</label>
           <Textarea
-            {...register('description')}
+            {...form.register('description')}
             placeholder="Digite a descrição do exercício"
             className="bg-white border-gray-200"
           />
-          {errors.description && (
-            <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
+          {form.formState.errors.description && (
+            <p className="text-red-500 text-sm mt-1">{form.formState.errors.description.message}</p>
           )}
         </div>
 
@@ -138,7 +150,7 @@ export function ExerciseForm({ exercise, onSubmit }: ExerciseFormProps) {
             {exerciseType === 'reading' ? 'Texto' : exerciseType === 'listening' ? 'Texto para Áudio' : 'Texto para Ditado'}
           </label>
           <Textarea
-            {...register('content')}
+            {...form.register('content')}
             placeholder={
               exerciseType === 'reading' 
                 ? 'Digite o texto do exercício'
@@ -149,8 +161,8 @@ export function ExerciseForm({ exercise, onSubmit }: ExerciseFormProps) {
             rows={6}
             className="bg-white border-gray-200"
           />
-          {errors.content && (
-            <p className="text-red-500 text-sm mt-1">{errors.content.message}</p>
+          {form.formState.errors.content && (
+            <p className="text-red-500 text-sm mt-1">{form.formState.errors.content.message}</p>
           )}
         </div>
 
@@ -158,7 +170,7 @@ export function ExerciseForm({ exercise, onSubmit }: ExerciseFormProps) {
           <div>
             <label className="block text-sm font-medium mb-1">Idioma</label>
             <Select 
-              onValueChange={(value) => setValue('languageId', value)}
+              onValueChange={(value) => form.setValue('languageId', value)}
               defaultValue={exercise?.languageId}
             >
               <SelectTrigger className="bg-white border-gray-200">
@@ -176,15 +188,15 @@ export function ExerciseForm({ exercise, onSubmit }: ExerciseFormProps) {
                 ))}
               </SelectContent>
             </Select>
-            {errors.languageId && (
-              <p className="text-red-500 text-sm mt-1">{errors.languageId.message}</p>
+            {form.formState.errors.languageId && (
+              <p className="text-red-500 text-sm mt-1">{form.formState.errors.languageId.message}</p>
             )}
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">Nível</label>
             <Select 
-              onValueChange={(value) => setValue('levelId', value)}
+              onValueChange={(value) => form.setValue('levelId', value)}
               defaultValue={exercise?.levelId}
             >
               <SelectTrigger className="bg-white border-gray-200">
@@ -202,8 +214,8 @@ export function ExerciseForm({ exercise, onSubmit }: ExerciseFormProps) {
                 ))}
               </SelectContent>
             </Select>
-            {errors.levelId && (
-              <p className="text-red-500 text-sm mt-1">{errors.levelId.message}</p>
+            {form.formState.errors.levelId && (
+              <p className="text-red-500 text-sm mt-1">{form.formState.errors.levelId.message}</p>
             )}
           </div>
         </div>

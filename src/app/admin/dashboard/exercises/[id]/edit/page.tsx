@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ExerciseForm } from '@/components/exercises/ExerciseForm'
+import { Spinner } from '@/components/ui/spinner'
+import { Alert } from '@/components/ui/alert'
 import type { ExerciseWithRelations } from '@/types/exercise'
 
-export default function EditExercisePage() {
+export default function EditExercisePage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [exercise, setExercise] = useState<ExerciseWithRelations | null>(null)
   const [loading, setLoading] = useState(true)
@@ -14,103 +16,77 @@ export default function EditExercisePage() {
   useEffect(() => {
     const fetchExercise = async () => {
       try {
-        setLoading(true)
-        // Extrair o ID do exercício da URL de forma mais robusta
-        const pathParts = window.location.pathname.split('/')
-        const exerciseId = pathParts[pathParts.indexOf('exercises') + 1]
-        
-        if (!exerciseId) {
-          throw new Error('ID do exercício não encontrado')
-        }
-
-        console.log('[DEBUG] Buscando exercício:', exerciseId)
-        
-        const response = await fetch(`/api/admin/exercises/${exerciseId}`)
-        
+        const response = await fetch(`/api/admin/exercises/${params.id}`)
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Erro ao carregar exercício')
+          throw new Error('Failed to fetch exercise')
         }
-
         const data = await response.json()
-        if (!data.exercise) {
-          throw new Error('Exercício não encontrado')
-        }
-
-        setExercise(data.exercise)
+        setExercise(data)
       } catch (err) {
-        console.error('Erro:', err)
-        setError(err instanceof Error ? err.message : 'Erro ao carregar exercício')
+        setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
         setLoading(false)
       }
     }
 
     fetchExercise()
-  }, [])
+  }, [params.id])
+
+  const handleSubmit = async (data: any) => {
+    try {
+      const response = await fetch(`/api/admin/exercises/${params.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update exercise')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update exercise')
+      throw err
+    }
+  }
 
   const handleSuccess = () => {
     router.push('/admin/dashboard/exercises')
   }
 
-  if (loading) return <LoadingState />
-  if (error) return <ErrorState error={error} onBack={() => router.back()} />
-  if (!exercise) return <NotFoundState onBack={() => router.back()} />
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Spinner />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <Alert variant="destructive">{error}</Alert>
+      </div>
+    )
+  }
+
+  if (!exercise) {
+    return (
+      <div className="p-4">
+        <Alert variant="destructive">Exercise not found</Alert>
+      </div>
+    )
+  }
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">
-        Editar Exercício
-      </h1>
-      <ExerciseForm 
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">Edit Exercise</h1>
+      <ExerciseForm
         exercise={exercise}
+        onSubmit={handleSubmit}
         onSuccess={handleSuccess}
       />
-    </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Carregando exercício...</p>
-      </div>
-    </div>
-  )
-}
-
-function ErrorState({ error, onBack }: { error: string; onBack: () => void }) {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-red-600 mb-4">Erro</h1>
-        <p className="text-gray-600 mb-4">{error}</p>
-        <button
-          onClick={onBack}
-          className="text-blue-600 hover:text-blue-700"
-        >
-          Voltar
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function NotFoundState({ onBack }: { onBack: () => void }) {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-800">Exercício não encontrado</h1>
-        <p className="mt-2 text-gray-600">O exercício que você está procurando não existe.</p>
-        <button
-          onClick={onBack}
-          className="mt-4 text-blue-600 hover:text-blue-700"
-        >
-          Voltar
-        </button>
-      </div>
     </div>
   )
 } 

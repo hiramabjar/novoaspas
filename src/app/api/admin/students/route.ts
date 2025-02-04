@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/database/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth/auth-options'
+import { prisma } from '@/lib/database/prisma'
 import { hashPassword } from '@/lib/auth/password-utils'
-import { getServerSession } from 'next-auth/next'
-import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 
 export async function POST(request: Request) {
   try {
