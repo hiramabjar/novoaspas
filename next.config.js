@@ -35,6 +35,5 @@ module.exports = {
   },
   experimental: {
     ...nextConfig.experimental,
-    serverActions: true
   }
 } 
