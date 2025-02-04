@@ -4,12 +4,12 @@ services:
     env: node
     buildCommand: |
       npm install &&
-      npx prisma generate &&
       mkdir -p /opt/render/project/src/prisma &&
       chmod -R 777 /opt/render/project/src/prisma &&
       touch /opt/render/project/src/prisma/prod.db &&
       chmod 777 /opt/render/project/src/prisma/prod.db &&
-      npx prisma migrate reset --force &&
+      npx prisma generate &&
+      npx prisma migrate deploy &&
       npx prisma db seed &&
       NODE_OPTIONS='--max_old_space_size=4096' NEXT_TELEMETRY_DISABLED=1 npm run build
     startCommand: npm run start
@@ -28,6 +28,8 @@ services:
         value: "1"
       - key: NEXT_SHARP_PATH
         value: /opt/render/project/src/node_modules/sharp
+      - key: NEXT_PUBLIC_API_URL
+        value: https://novoaspas.onrender.com
     disk:
       name: sqlite
       mountPath: /opt/render/project/src/prisma
