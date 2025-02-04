@@ -3,15 +3,15 @@ services:
     name: nextjs-app
     env: node
     buildCommand: |
-      mkdir -p /opt/render/project/src/prisma &&
-      chmod -R 777 /opt/render/project/src/prisma &&
-      touch /opt/render/project/src/prisma/dev.db &&
-      chmod 777 /opt/render/project/src/prisma/dev.db &&
       npm install &&
       npx prisma generate &&
+      mkdir -p /opt/render/project/src/prisma &&
+      chmod -R 777 /opt/render/project/src/prisma &&
+      touch /opt/render/project/src/prisma/prod.db &&
+      chmod 777 /opt/render/project/src/prisma/prod.db &&
       npx prisma migrate reset --force &&
       npx prisma db seed &&
-      NODE_OPTIONS='--max_old_space_size=4096' NEXT_TELEMETRY_DISABLED=1 NEXT_SHARP_PATH=/opt/render/project/src/node_modules/sharp npm run build
+      NODE_OPTIONS='--max_old_space_size=4096' NEXT_TELEMETRY_DISABLED=1 npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
@@ -19,7 +19,7 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: file:/opt/render/project/src/prisma/dev.db
+        value: file:/opt/render/project/src/prisma/prod.db
       - key: NEXTAUTH_URL
         value: https://novoaspas.onrender.com
       - key: NEXTAUTH_SECRET

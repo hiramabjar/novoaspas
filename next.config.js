@@ -3,6 +3,9 @@ const nextConfig = {
   output: 'standalone',
   images: {
     domains: ['github.com'],
+  },
+  experimental: {
+    serverActions: true
   }
 }
 
