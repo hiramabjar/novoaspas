@@ -9,8 +9,7 @@ services:
       chmod 777 /opt/render/project/src/prisma/prod.db &&
       npm install &&
       npx prisma generate &&
-      npx prisma db push &&
-      npx prisma db seed &&
+      npx prisma migrate reset --force &&
       npm run build
     startCommand: npm run start
     envVars:
