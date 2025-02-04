@@ -18,9 +18,21 @@ export default withAuth(
   }
 )
 
+export function middleware(request: NextRequest) {
+  const response = NextResponse.next()
+  
+  response.headers.set('Access-Control-Allow-Credentials', 'true')
+  response.headers.set('Access-Control-Allow-Origin', '*')
+  response.headers.set('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT')
+  response.headers.set('Access-Control-Allow-Headers', 'Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date')
+  
+  return response
+}
+
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/api/admin/:path*'
+    '/api/admin/:path*',
+    '/api/:path*'
   ]
 } 
