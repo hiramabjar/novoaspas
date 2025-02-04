@@ -1,0 +1,65 @@
+/* Adicione isso ao seu arquivo de estilos */
+audio {
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+  width: 100%;
+  height: 40px;
+}
+
+audio::-webkit-media-controls-panel {
+  background-color: #f3f4f6;
+}
+
+audio::-webkit-media-controls-play-button {
+  background-color: #3b82f6;
+  border-radius: 50%;
+}
+
+audio::-webkit-media-controls-play-button:hover {
+  background-color: #2563eb;
+}
+
+/* Estilos personalizados para o player de áudio */
+.custom-audio-player {
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+  width: 100%;
+  height: 44px;
+}
+
+/* Controles do player */
+.custom-audio-player::-webkit-media-controls-panel {
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+}
+
+.custom-audio-player::-webkit-media-controls-play-button {
+  background-color: #3b82f6;
+  border-radius: 50%;
+  color: white;
+}
+
+.custom-audio-player::-webkit-media-controls-play-button:hover {
+  background-color: #2563eb;
+}
+
+.custom-audio-player::-webkit-media-controls-current-time-display,
+.custom-audio-player::-webkit-media-controls-time-remaining-display {
+  color: #4b5563;
+  font-family: monospace;
+}
+
+.custom-audio-player::-webkit-media-controls-volume-slider {
+  background-color: #3b82f6;
+  border-radius: 0.25rem;
+  padding: 0 0.5rem;
+}
+
+.custom-audio-player::-webkit-media-controls-progress-bar {
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+}
+
+.custom-audio-player::-webkit-media-controls-timeline {
+  color: #3b82f6;
+} 

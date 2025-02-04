@@ -1,0 +1,23 @@
+src/
+├── app/
+│   ├── (admin)/
+│   │   ├── dashboard/
+│   │   ├── students/
+│   │   ├── exercises/
+│   │   └── layout.tsx
+│   ├── (student)/
+│   │   ├── dashboard/
+│   │   ├── progress/
+│   │   └── layout.tsx
+│   ├── auth/
+│   └── layout.tsx
+├── features/
+│   ├── admin/
+│   ├── student/
+│   ├── auth/
+│   └── shared/
+├── lib/
+│   ├── database/
+│   └── utils/
+├── types/
+└── styles/ 

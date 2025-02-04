@@ -1,0 +1,207 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id               String            @id @default(cuid())
+  name             String?
+  email            String?           @unique
+  password         String?
+  emailVerified    DateTime?
+  image            String?
+  role             String            @default("student")
+  accounts         Account[]
+  sessions         Session[]
+  exerciseAttempts ExerciseAttempt[]
+  studentProfile   StudentProfile?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  progress       ExerciseProgress[]
+  moduleProgress ModuleProgress[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model StudentProfile {
+  id          String       @id @default(cuid())
+  user        User         @relation(fields: [userId], references: [id])
+  userId      String       @unique
+  enrollments Enrollment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Language {
+  id          String       @id @default(cuid())
+  name        String
+  code        String       // código do idioma para TTS (ex: en-US)
+  exercises   Exercise[]
+  enrollments Enrollment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Level {
+  id          String       @id @default(cuid())
+  name        String
+  exercises   Exercise[]
+  enrollments Enrollment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Enrollment {
+  id              String         @id @default(cuid())
+  student         StudentProfile @relation(fields: [studentProfileId], references: [id])
+  studentProfileId String
+  language        Language       @relation(fields: [languageId], references: [id])
+  languageId      String
+  level           Level          @relation(fields: [levelId], references: [id])
+  levelId         String
+  status          String         @default("ACTIVE")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([studentProfileId])
+  @@index([languageId])
+  @@index([levelId])
+}
+
+model Module {
+  id             String           @id @default(cuid())
+  name           String
+  description    String?
+  order          Int
+  exercises      Exercise[]
+  moduleProgress ModuleProgress[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model Exercise {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  content     String
+  type        String   // 'listening' ou 'reading'
+  module      Module?  @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  moduleId    String?  
+  language    Language @relation(fields: [languageId], references: [id])
+  languageId  String
+  level       Level    @relation(fields: [levelId], references: [id])
+  levelId     String
+
+  attempts  ExerciseAttempt[]
+  progress  ExerciseProgress[]
+  questions Question[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([moduleId])
+  @@index([languageId])
+  @@index([levelId])
+}
+
+model ExerciseAttempt {
+  id          String    @id @default(cuid())
+  exercise    Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exerciseId  String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  score       Float
+  completed   Boolean   @default(false)
+  answers     String    // JSON string
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([exerciseId])
+}
+
+model ExerciseProgress {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  exercise   Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exerciseId String
+  status     String    @default("STARTED") // STARTED, COMPLETED, FAILED
+  score      Float?
+  attempts   Int       @default(1)
+  answers    String?   // JSON string
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@unique([userId, exerciseId])
+  @@index([userId, status])
+}
+
+model ModuleProgress {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  moduleId  String
+  completed Int      @default(0)
+  total     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, moduleId])
+  @@index([userId, moduleId])
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  exerciseId    String
+  question      String
+  options       String   // JSON string of options array
+  correctAnswer String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId])
+} 
