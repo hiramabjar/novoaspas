@@ -13,8 +13,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true
   },
-  staticPageGenerationTimeout: 1000,
-  pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   }
