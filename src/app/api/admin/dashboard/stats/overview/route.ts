@@ -11,126 +11,61 @@ export async function GET() {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    // Buscar dados do mês atual
-    const currentDate = new Date()
-    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+    // Get total students
+    const totalStudents = await prisma.user.count({
+      where: {
+        role: 'student'
+      }
+    })
 
-    // Buscar dados do mês anterior
-    const firstDayOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-    const lastDayOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
+    // Get total exercises
+    const totalExercises = await prisma.exercise.count()
 
-    // Queries em paralelo para melhor performance
-    const [
-      activeStudentsThisMonth,
-      activeStudentsLastMonth,
-      totalExercises,
-      totalExercisesLastMonth,
-      exerciseStats,
-      completedExercises,
-      attempts
-    ] = await Promise.all([
-      prisma.user.count({
-        where: {
-          role: 'student',
-          exerciseAttempts: {
-            some: {
-              startedAt: {
-                gte: firstDayOfMonth,
-                lte: lastDayOfMonth
-              }
-            }
-          }
+    // Get total exercise attempts
+    const totalAttempts = await prisma.exerciseAttempt.count({
+      where: {
+        completedAt: {
+          not: null
         }
-      }),
-      prisma.user.count({
-        where: {
-          role: 'student',
-          exerciseAttempts: {
-            some: {
-              startedAt: {
-                gte: firstDayOfLastMonth,
-                lte: lastDayOfLastMonth
-              }
-            }
-          }
-        }
-      }),
-      prisma.exercise.count(),
-      prisma.exercise.count({
-        where: {
-          createdAt: {
-            lt: firstDayOfMonth
-          }
-        }
-      }),
-      prisma.exerciseAttempt.aggregate({
-        _count: { id: true },
-        where: {
-          startedAt: {
-            gte: firstDayOfMonth,
-            lte: lastDayOfMonth
-          }
-        }
-      }),
-      prisma.exerciseAttempt.count({
-        where: {
-          completed: true,
-          startedAt: {
-            gte: firstDayOfMonth,
-            lte: lastDayOfMonth
-          }
-        }
-      }),
-      prisma.exerciseAttempt.findMany({
-        where: {
-          completed: true,
-          startedAt: {
-            gte: firstDayOfMonth,
-            lte: lastDayOfMonth
-          }
-        },
-        select: {
-          startedAt: true,
-          completedAt: true
-        }
-      })
-    ])
+      }
+    })
 
-    const completionRate = exerciseStats._count.id > 0
-      ? (completedExercises / exerciseStats._count.id) * 100
-      : 0
+    // Get average score
+    const attempts = await prisma.exerciseAttempt.findMany({
+      where: {
+        completedAt: {
+          not: null
+        }
+      },
+      select: {
+        score: true,
+        startedAt: true,
+        completedAt: true
+      }
+    })
 
-    const averageTime = attempts.length > 0
-      ? attempts.reduce((acc, curr) => {
-          const duration = curr.completedAt 
-            ? (curr.completedAt.getTime() - curr.startedAt.getTime()) / 60000 
-            : 0
-          return acc + duration
-        }, 0) / attempts.length
-      : 0
+    let totalScore = 0
+    let totalTime = 0
+    let validAttempts = 0
+
+    attempts.forEach(attempt => {
+      if (attempt.score !== null && attempt.completedAt) {
+        totalScore += attempt.score
+        const time = attempt.completedAt.getTime() - attempt.startedAt.getTime()
+        totalTime += time
+        validAttempts++
+      }
+    })
+
+    const averageScore = validAttempts > 0 ? totalScore / validAttempts : 0
+    const averageTime = validAttempts > 0 ? totalTime / validAttempts : 0
 
     return NextResponse.json({
-      activeStudents: {
-        current: activeStudentsThisMonth,
-        previous: activeStudentsLastMonth,
-        change: activeStudentsThisMonth - activeStudentsLastMonth
-      },
-      totalExercises: {
-        current: totalExercises,
-        previous: totalExercisesLastMonth,
-        change: totalExercises - totalExercisesLastMonth
-      },
-      completionRate: {
-        current: Math.round(completionRate * 10) / 10,
-        previous: 0,
-        change: 0
-      },
-      averageTime: {
-        current: Math.round(averageTime),
-        previous: 0,
-        change: 0
-      }
+      totalStudents,
+      totalExercises,
+      totalAttempts,
+      averageScore,
+      averageTime
     })
   } catch (error) {
     console.error('Error fetching overview stats:', error)

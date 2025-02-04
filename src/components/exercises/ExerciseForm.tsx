@@ -10,7 +10,13 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LANGUAGES, LEVELS } from '@/lib/constants'
-import type { ExerciseWithRelations, ExerciseFormData } from '@/types/exercise'
+import type { ExerciseWithRelations, ExerciseFormData, QuestionFormData } from '@/types/exercise'
+
+const questionSchema = z.object({
+  question: z.string().min(1, 'Questão é obrigatória'),
+  options: z.array(z.string()).min(2, 'Adicione pelo menos 2 opções'),
+  correctAnswer: z.string().min(1, 'Resposta correta é obrigatória')
+})
 
 const exerciseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -19,11 +25,7 @@ const exerciseSchema = z.object({
   languageId: z.string().min(1, 'Idioma é obrigatório'),
   levelId: z.string().min(1, 'Nível é obrigatório'),
   type: z.enum(['reading', 'listening', 'dictation']),
-  questions: z.array(z.object({
-    question: z.string(),
-    options: z.any(),
-    correctAnswer: z.string()
-  }))
+  questions: z.array(questionSchema).min(1, 'Adicione pelo menos uma questão')
 })
 
 export interface ExerciseFormProps {
@@ -33,10 +35,10 @@ export interface ExerciseFormProps {
 }
 
 export function ExerciseForm({ exercise, onSubmit, onSuccess }: ExerciseFormProps) {
-  const [questions, setQuestions] = useState<ExerciseFormData['questions']>(
+  const [questions, setQuestions] = useState<QuestionFormData[]>(
     exercise?.questions?.map(q => ({
       question: q.question,
-      options: q.options,
+      options: JSON.parse(q.options),
       correctAnswer: q.correctAnswer
     })) || []
   )
@@ -50,7 +52,11 @@ export function ExerciseForm({ exercise, onSubmit, onSuccess }: ExerciseFormProp
       type: exercise.type as 'reading' | 'listening' | 'dictation',
       languageId: exercise.languageId,
       levelId: exercise.levelId,
-      questions: exercise.questions
+      questions: exercise.questions.map(q => ({
+        question: q.question,
+        options: JSON.parse(q.options),
+        correctAnswer: q.correctAnswer
+      }))
     } : {
       title: '',
       description: '',
@@ -66,17 +72,23 @@ export function ExerciseForm({ exercise, onSubmit, onSuccess }: ExerciseFormProp
 
   useEffect(() => {
     if (exercise) {
-      Object.entries(exercise).forEach(([key, value]) => {
-        if (key !== 'questions') {
-          form.setValue(key as keyof ExerciseFormData, value)
-        }
-      })
+      const formattedQuestions = exercise.questions.map(q => ({
+        question: q.question,
+        options: JSON.parse(q.options),
+        correctAnswer: q.correctAnswer
+      }))
+      form.setValue('questions', formattedQuestions)
     }
   }, [exercise, form])
 
   const handleAddQuestion = () => {
-    setQuestions([...questions, { question: '', options: [], correctAnswer: '' }])
-    form.setValue('questions', [...questions, { question: '', options: [], correctAnswer: '' }])
+    const newQuestion: QuestionFormData = { 
+      question: '', 
+      options: [], 
+      correctAnswer: '' 
+    }
+    setQuestions([...questions, newQuestion])
+    form.setValue('questions', [...questions, newQuestion])
   }
 
   const handleRemoveQuestion = (index: number) => {
@@ -85,7 +97,7 @@ export function ExerciseForm({ exercise, onSubmit, onSuccess }: ExerciseFormProp
     form.setValue('questions', newQuestions)
   }
 
-  const handleQuestionChange = (index: number, field: string, value: any) => {
+  const handleQuestionChange = (index: number, field: keyof QuestionFormData, value: any) => {
     const newQuestions = [...questions]
     newQuestions[index] = { ...newQuestions[index], [field]: value }
     setQuestions(newQuestions)
@@ -101,6 +113,7 @@ export function ExerciseForm({ exercise, onSubmit, onSuccess }: ExerciseFormProp
       options
     }
     setQuestions(newQuestions)
+    form.setValue('questions', newQuestions)
   }
 
   const handleFormSubmit = async (data: ExerciseFormData) => {

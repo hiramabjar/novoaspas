@@ -1,36 +1,31 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
 
-export function AudioPlayer({ url }) {
-  const [playing, setPlaying] = useState(false)
+interface AudioPlayerProps {
+  url: string
+}
+
+export function AudioPlayer({ url }: AudioPlayerProps) {
+  const [isPlaying, setIsPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   const togglePlay = () => {
-    if (playing) {
-      audioRef.current?.pause()
-    } else {
-      audioRef.current?.play()
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause()
+      } else {
+        audioRef.current.play()
+      }
+      setIsPlaying(!isPlaying)
     }
-    setPlaying(!playing)
   }
 
   return (
-    <div className="flex items-center gap-4">
-      <audio ref={audioRef} src={url} onEnded={() => setPlaying(false)} />
-      <Button onClick={togglePlay}>
-        {playing ? 'Pausar' : 'Ouvir'}
+    <div className="flex items-center space-x-2">
+      <audio ref={audioRef} src={url} />
+      <Button onClick={togglePlay} variant="outline">
+        {isPlaying ? 'Pause' : 'Play'}
       </Button>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.1"
-        onChange={(e) => {
-          if (audioRef.current) {
-            audioRef.current.volume = parseFloat(e.target.value)
-          }
-        }}
-        className="w-24"
-      />
     </div>
   )
 } 

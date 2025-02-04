@@ -1,61 +1,77 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, FieldValues } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import * as z from 'zod'
 import { Language, Level, User } from '@prisma/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Controller } from 'react-hook-form'
 
-type Enrollment = {
-  languageId: string
-  levelId: string
+interface StudentProfile {
+  id: string
+  userId: string
+  enrollments: Array<{
+    languageId: string
+    levelId: string
+  }>
+}
+
+interface UserWithProfile extends User {
+  studentProfile?: StudentProfile | null
 }
 
 const studentSchema = z.object({
-  name: z.string().min(1, 'O nome é obrigatório'),
+  name: z.string().min(1, 'Nome é obrigatório'),
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres').optional(),
+  password: z.string().optional(),
   enrollments: z.array(z.object({
-    languageId: z.string().min(1, 'Selecione um idioma'),
-    levelId: z.string().min(1, 'Selecione um nível')
-  })).min(1, 'Adicione pelo menos uma matrícula')
+    languageId: z.string(),
+    levelId: z.string()
+  }))
 })
 
 type StudentFormData = z.infer<typeof studentSchema>
 
 interface StudentFormProps {
-  onSuccess: () => void
-  initialData?: User | null
+  initialData?: UserWithProfile
+  onSubmit: (data: StudentFormData) => Promise<void>
 }
 
-export function StudentForm({ onSuccess, initialData }: StudentFormProps) {
+interface FormField {
+  onChange: (value: string) => void
+  onBlur: () => void
+  value: string
+  name: string
+  ref: React.Ref<HTMLInputElement>
+}
+
+export function StudentForm({ initialData, onSubmit }: StudentFormProps) {
   const [languages, setLanguages] = useState<Language[]>([])
   const [levels, setLevels] = useState<Level[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [enrollments, setEnrollments] = useState<Enrollment[]>(
+  const [enrollments, setEnrollments] = useState<{ languageId: string; levelId: string }[]>(
     initialData?.studentProfile?.enrollments?.map(e => ({
       languageId: e.languageId,
       levelId: e.levelId
     })) || [{ languageId: '', levelId: '' }]
   )
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    setValue
-  } = useForm<StudentFormData>({
+  const form = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
     defaultValues: initialData ? {
-      name: initialData.name,
-      email: initialData.email,
-      enrollments: initialData.studentProfile?.enrollments?.map(e => ({
+      name: initialData.name || '',
+      email: initialData.email || '',
+      enrollments: initialData.studentProfile?.enrollments?.map((e) => ({
         languageId: e.languageId,
         levelId: e.levelId
-      })) || [{ languageId: '', levelId: '' }]
+      })) || []
     } : {
-      enrollments: [{ languageId: '', levelId: '' }]
+      name: '',
+      email: '',
+      enrollments: []
     }
   })
 
@@ -80,25 +96,13 @@ export function StudentForm({ onSuccess, initialData }: StudentFormProps) {
     }
   }
 
-  const onSubmit = async (data: StudentFormData) => {
+  const handleSubmit = async (data: StudentFormData) => {
     try {
       setIsSubmitting(true)
-      const response = await fetch('/api/admin/students' + (initialData ? `/${initialData.id}` : ''), {
-        method: initialData ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'Erro ao salvar aluno')
-      }
-
-      reset()
-      onSuccess()
+      await onSubmit(data)
+      form.reset()
     } catch (error) {
-      console.error('Erro:', error)
-      alert(error instanceof Error ? error.message : 'Erro ao salvar aluno')
+      console.error('Error submitting form:', error)
     } finally {
       setIsSubmitting(false)
     }
@@ -107,132 +111,145 @@ export function StudentForm({ onSuccess, initialData }: StudentFormProps) {
   const addEnrollment = () => {
     const newEnrollments = [...enrollments, { languageId: '', levelId: '' }]
     setEnrollments(newEnrollments)
-    setValue('enrollments', newEnrollments)
+    form.setValue('enrollments', newEnrollments)
   }
 
   const removeEnrollment = (index: number) => {
     if (enrollments.length > 1) {
       const newEnrollments = enrollments.filter((_, i) => i !== index)
       setEnrollments(newEnrollments)
-      setValue('enrollments', newEnrollments)
+      form.setValue('enrollments', newEnrollments)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Nome</label>
-        <input
-          type="text"
-          {...register('name')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-        />
-        {errors.name && (
-          <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-        )}
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Email</label>
-        <input
-          type="email"
-          {...register('email')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-        />
-        {errors.email && (
-          <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-        )}
-      </div>
-
-      {!initialData && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Senha</label>
-          <input
-            type="password"
-            {...register('password')}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          />
-          {errors.password && (
-            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }: { field: FormField }) => (
+            <FormItem>
+              <FormLabel>Nome</FormLabel>
+              <FormControl>
+                <Input 
+                  {...field} 
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
-        </div>
-      )}
+        />
 
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium">Matrículas</h3>
-          <button
-            type="button"
-            onClick={addEnrollment}
-            className="text-sm text-blue-600 hover:text-blue-700"
-          >
-            + Adicionar Matrícula
-          </button>
-        </div>
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }: { field: FormField }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input 
+                  {...field} 
+                  type="email"
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        {enrollments.map((enrollment, index) => (
-          <div key={index} className="p-4 border rounded-lg">
-            <div className="flex justify-between mb-4">
-              <h4 className="font-medium">Matrícula {index + 1}</h4>
-              {enrollments.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeEnrollment(index)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  Remover
-                </button>
-              )}
-            </div>
+        {!initialData && (
+          <Controller
+            name="password"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <FormItem>
+                <FormLabel>Senha</FormLabel>
+                <FormControl>
+                  <Input 
+                    {...field} 
+                    type="password"
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
+                </FormControl>
+                <FormMessage>{fieldState.error?.message}</FormMessage>
+              </FormItem>
+            )}
+          />
+        )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Idioma
-                </label>
-                <select
-                  {...register(`enrollments.${index}.languageId`)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                >
-                  <option value="">Selecione um idioma</option>
-                  {languages.map((language) => (
-                    <option key={language.id} value={language.id}>
-                      {language.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Nível
-                </label>
-                <select
-                  {...register(`enrollments.${index}.levelId`)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
-                >
-                  <option value="">Selecione um nível</option>
-                  {levels.map((level) => (
-                    <option key={level.id} value={level.id}>
-                      {level.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium">Matrículas</h3>
+            <button
+              type="button"
+              onClick={addEnrollment}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              + Adicionar Matrícula
+            </button>
           </div>
-        ))}
-      </div>
 
-      <div className="flex justify-end pt-4">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
+          {enrollments.map((enrollment, index) => (
+            <div key={index} className="p-4 border rounded-lg">
+              <div className="flex justify-between mb-4">
+                <h4 className="font-medium">Matrícula {index + 1}</h4>
+                {enrollments.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeEnrollment(index)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Idioma
+                  </label>
+                  <select
+                    {...form.register(`enrollments.${index}.languageId`)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  >
+                    <option value="">Selecione um idioma</option>
+                    {languages.map((language) => (
+                      <option key={language.id} value={language.id}>
+                        {language.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nível
+                  </label>
+                  <select
+                    {...form.register(`enrollments.${index}.levelId`)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                  >
+                    <option value="">Selecione um nível</option>
+                    {levels.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {level.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Salvando...' : 'Salvar'}
-        </button>
-      </div>
-    </form>
+        </Button>
+      </form>
+    </Form>
   )
 } 

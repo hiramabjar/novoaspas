@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server'
-import { textToSpeech } from '@/lib/services/textToSpeech'
+import { textToSpeech } from '@/lib/text-to-speech'
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { text, language } = await req.json()
+    const { text, language } = await request.json()
 
     if (!text || !language) {
       return NextResponse.json(
-        { error: 'Texto e idioma são obrigatórios' },
+        { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
-    const audioBase64 = await textToSpeech(text, language)
-    return NextResponse.json({ audioUrl: audioBase64 })
+    const audioBase64 = await textToSpeech(text, language as "en" | "es" | "fr" | "de" | "it" | "pt")
+
+    return NextResponse.json({ audio: audioBase64 })
   } catch (error) {
-    console.error('Erro na conversão de texto para áudio:', error)
+    console.error('Error generating audio:', error)
     return NextResponse.json(
-      { error: 'Erro ao gerar áudio' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     )
   }

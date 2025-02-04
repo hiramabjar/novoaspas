@@ -1,7 +1,8 @@
 'use client'
 
-import { Document, Page, Text, View, StyleSheet, PDFDownloadLink } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, BlobProvider } from '@react-pdf/renderer'
 import type { Exercise } from '@/types/exercise'
+import { ExercisePDF } from './ExercisePDF'
 
 const styles = StyleSheet.create({
   page: {
@@ -63,33 +64,42 @@ const ExercisePDFDocument = ({ exercise }: { exercise: Exercise }) => (
   </Document>
 )
 
-export function ExercisePDFDownload({ exercise }: { exercise: Exercise }) {
+interface BlobProviderRenderProps {
+  blob: Blob | null
+  url: string | null
+  loading: boolean
+  error: Error | null
+}
+
+interface ExercisePDFClientProps {
+  exercise: Exercise
+}
+
+export function ExercisePDFClient({ exercise }: ExercisePDFClientProps) {
+  if (!exercise.questions || exercise.questions.length === 0) {
+    return null
+  }
+
   return (
-    <PDFDownloadLink
-      document={<ExercisePDFDocument exercise={exercise} />}
-      fileName={`exercicio-${exercise.title.toLowerCase().replace(/\s+/g, '-')}.pdf`}
-      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-    >
-      {({ loading }) =>
-        loading ? 'Gerando PDF...' : (
-          <>
-            <svg
-              className="w-4 h-4 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+    <BlobProvider document={<ExercisePDF exercise={exercise} />}>
+      {({ blob, url, loading, error }: BlobProviderRenderProps) => (
+        loading ? (
+          <button
+            disabled
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Gerando PDF...
+          </button>
+        ) : (
+          <a
+            href={url || '#'}
+            download={`exercicio-${exercise.id}.pdf`}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
             Baixar PDF
-          </>
+          </a>
         )
-      }
-    </PDFDownloadLink>
+      )}
+    </BlobProvider>
   )
 } 

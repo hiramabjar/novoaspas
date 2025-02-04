@@ -10,259 +10,185 @@ import { AudioPlayer } from './AudioPlayer'
 import { Play, Pause, RotateCcw, Volume2, Volume1, VolumeX, FastForward } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { DownloadPdfButton } from './DownloadPdfButton'
-import type { Exercise } from '@/types/exercise'
+import type { ExerciseWithRelations } from '@/types/exercise'
 
 interface ListeningExerciseProps {
-  exercise: Exercise
-  onSubmit: (answers: Array<{ questionId: string; answer: string }>) => void
+  exercise: ExerciseWithRelations
+  onComplete: (score: number, answers: Record<string, string>) => Promise<void>
 }
 
-export function ListeningExercise({ exercise, onSubmit }: ListeningExerciseProps) {
+export function ListeningExercise({ exercise, onComplete }: ListeningExerciseProps) {
   const { toast } = useToast()
-  const [selectedAnswers, setSelectedAnswers] = useState<string[]>(Array(exercise.questions.length).fill(''))
+  const [selectedAnswers, setSelectedAnswers] = useState<string[]>(
+    Array(exercise.questions?.length || 0).fill('')
+  )
   const [showResults, setShowResults] = useState(false)
   const [playbackRate, setPlaybackRate] = useState(1)
   const [volume, setVolume] = useState(1)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   useEffect(() => {
     if (!exercise.audioUrl) {
-      // Configurar a síntese de voz como fallback
       utteranceRef.current = new SpeechSynthesisUtterance(exercise.content)
-      utteranceRef.current.lang = exercise.language.code
+      if (exercise.language?.code) {
+        utteranceRef.current.lang = exercise.language.code
+      }
       utteranceRef.current.rate = playbackRate
       utteranceRef.current.volume = volume
-      
-      return () => {
-        if (utteranceRef.current) {
-          speechSynthesis.cancel()
-        }
+    }
+
+    return () => {
+      if (utteranceRef.current) {
+        speechSynthesis.cancel()
       }
     }
-  }, [exercise.content, exercise.language.code, exercise.audioUrl, playbackRate, volume])
+  }, [exercise.content, exercise.language?.code, exercise.audioUrl, playbackRate, volume])
 
-  const playAudio = () => {
-    if (!utteranceRef.current) return
-
-    if (isPlaying) {
-      speechSynthesis.cancel()
-      setIsPlaying(false)
+  const togglePlay = () => {
+    if (exercise.audioUrl) {
+      const audio = document.querySelector('audio')
+      if (audio) {
+        if (isPlaying) {
+          audio.pause()
+        } else {
+          audio.play()
+        }
+        setIsPlaying(!isPlaying)
+      }
     } else {
-      utteranceRef.current.onend = () => setIsPlaying(false)
-      speechSynthesis.speak(utteranceRef.current)
-      setIsPlaying(true)
+      if (isPlaying) {
+        speechSynthesis.cancel()
+      } else if (utteranceRef.current) {
+        speechSynthesis.speak(utteranceRef.current)
+      }
+      setIsPlaying(!isPlaying)
     }
   }
 
-  const restartAudio = () => {
-    if (utteranceRef.current) {
-      speechSynthesis.cancel()
-      setIsPlaying(false)
-      setCurrentTime(0)
-      setTimeout(() => {
-        speechSynthesis.speak(utteranceRef.current!)
-        setIsPlaying(true)
-      }, 100)
-    }
+  const handleAnswerSelect = (questionIndex: number, answer: string) => {
+    const newAnswers = [...selectedAnswers]
+    newAnswers[questionIndex] = answer
+    setSelectedAnswers(newAnswers)
   }
 
-  const handleVolumeChange = (newVolume: number) => {
-    setVolume(newVolume)
-    if (utteranceRef.current) {
-      utteranceRef.current.volume = newVolume
-    }
-  }
+  const handleSubmit = async () => {
+    if (!exercise.questions) return
 
-  const handlePlaybackRateChange = (newRate: number) => {
-    setPlaybackRate(newRate)
-    if (utteranceRef.current) {
-      utteranceRef.current.rate = newRate
-    }
-  }
-
-  const handleSubmit = () => {
-    if (selectedAnswers.some(answer => !answer)) {
-      toast({
-        title: "Atenção",
-        description: "Por favor, responda todas as questões antes de enviar.",
-        variant: "destructive"
-      })
-      return
-    }
-
-    // Criar array de respostas no formato esperado
     const formattedAnswers = exercise.questions.map((question, index) => ({
       questionId: question.id,
       answer: selectedAnswers[index]
     }))
 
-    // Enviar respostas para pontuação
-    try {
-      onSubmit(formattedAnswers)
-      setShowResults(true)
-      toast({
-        title: "Sucesso",
-        description: "Respostas enviadas com sucesso!",
-        variant: "default"
-      })
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao enviar respostas. Tente novamente.",
-        variant: "destructive"
-      })
-    }
+    let score = 0
+    const answers: Record<string, string> = {}
+
+    exercise.questions.forEach((question, index) => {
+      const selectedAnswer = selectedAnswers[index]
+      answers[question.id] = selectedAnswer
+
+      if (selectedAnswer === question.correctAnswer) {
+        score++
+      }
+    })
+
+    const finalScore = Math.round((score / exercise.questions.length) * 100)
+    await onComplete(finalScore, answers)
+  }
+
+  if (!exercise.questions) {
+    return <div>No questions available</div>
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Card className="p-6">
-        <div className="prose max-w-none">
-          <div className="mb-6 flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-semibold mb-2">Exercício de Listening</h2>
-              <p className="text-gray-600">Ouça o áudio e responda as questões abaixo.</p>
-            </div>
-            <DownloadPdfButton
-              title={exercise.title}
-              content={exercise.content}
-              description={exercise.description}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold">{exercise.title}</h2>
+          <p className="text-gray-600">{exercise.description}</p>
+
+          {exercise.audioUrl ? (
+            <audio
+              src={exercise.audioUrl}
+              controls
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
             />
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded-md">
-            {exercise.audioUrl ? (
-              <AudioPlayer 
-                audioUrl={exercise.audioUrl}
-                onPlaybackRateChange={handlePlaybackRateChange}
-                onVolumeChange={handleVolumeChange}
-                className="bg-white shadow-sm"
-              />
-            ) : (
-              <Card className="p-4">
-                <div className="space-y-4">
-                  {/* Controles principais */}
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={playAudio}
-                      className="w-10 h-10"
-                    >
-                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={restartAudio}
-                      className="w-10 h-10"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* Controles de volume e velocidade */}
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2 flex-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-8 h-8"
-                        onClick={() => handleVolumeChange(volume === 0 ? 1 : 0)}
-                      >
-                        {volume === 0 ? <VolumeX className="h-4 w-4" /> : 
-                         volume < 0.5 ? <Volume1 className="h-4 w-4" /> : 
-                         <Volume2 className="h-4 w-4" />}
-                      </Button>
-                      <Slider
-                        value={[volume]}
-                        onValueChange={(value) => handleVolumeChange(value[0])}
-                        max={1}
-                        step={0.1}
-                        className="w-24"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <FastForward className="h-4 w-4 text-gray-500" />
-                      <Slider
-                        value={[playbackRate]}
-                        onValueChange={(value) => handlePlaybackRateChange(value[0])}
-                        min={0.5}
-                        max={2}
-                        step={0.25}
-                        className="w-24"
-                      />
-                      <span className="text-sm text-gray-500 w-12">
-                        {playbackRate}x
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <Button onClick={togglePlay}>
+                {isPlaying ? 'Pause' : 'Play'}
+              </Button>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">
+                  Speed: {playbackRate}x
+                </label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2"
+                  step="0.1"
+                  value={playbackRate}
+                  onChange={(e) => setPlaybackRate(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">
+                  Volume: {Math.round(volume * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={volume}
+                  onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
       <div className="space-y-6">
         {exercise.questions.map((question, index) => {
-          const options = JSON.parse(question.options)
+          const options = question.options ? question.options.split(',') : []
           return (
             <Card key={question.id} className="p-6">
-              <p className="font-medium mb-4">
-                {index + 1}. {question.question}
-              </p>
-              <RadioGroup
-                value={selectedAnswers[index]}
-                onValueChange={(value: string) => {
-                  const newAnswers = [...selectedAnswers]
-                  newAnswers[index] = value
-                  setSelectedAnswers(newAnswers)
-                }}
-              >
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">
+                  Question {index + 1}: {question.question}
+                </h3>
                 <div className="space-y-2">
-                  {options.map((option: string, optIndex: number) => (
-                    <div key={optIndex} className="flex items-center space-x-2 p-2 rounded hover:bg-gray-50">
-                      <RadioGroupItem value={option} id={`q${index}-opt${optIndex}`} />
-                      <Label htmlFor={`q${index}-opt${optIndex}`} className="cursor-pointer">
-                        {option}
-                      </Label>
-                    </div>
+                  {options.map((option) => (
+                    <label key={option} className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        name={`question-${question.id}`}
+                        value={option}
+                        checked={selectedAnswers[index] === option}
+                        onChange={() => handleAnswerSelect(index, option)}
+                        className="form-radio"
+                      />
+                      <span>{option}</span>
+                    </label>
                   ))}
                 </div>
-              </RadioGroup>
-              {showResults && (
-                <div className="mt-4">
-                  <p className={`text-sm ${
-                    selectedAnswers[index] === question.correctAnswer
-                      ? 'text-green-600'
-                      : 'text-red-600'
-                  }`}>
-                    {selectedAnswers[index] === question.correctAnswer
-                      ? '✓ Resposta correta!'
-                      : `✗ Resposta incorreta. A resposta correta é: ${question.correctAnswer}`}
-                  </p>
-                </div>
-              )}
+              </div>
             </Card>
           )
         })}
       </div>
 
-      {!showResults && (
-        <div className="flex justify-end">
-          <Button
-            onClick={handleSubmit}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Enviar Respostas
-          </Button>
-        </div>
-      )}
+      <Button
+        onClick={handleSubmit}
+        disabled={selectedAnswers.some(answer => !answer)}
+        className="w-full"
+      >
+        Submit
+      </Button>
     </div>
   )
 } 

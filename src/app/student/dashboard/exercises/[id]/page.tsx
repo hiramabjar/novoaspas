@@ -13,12 +13,22 @@ import { ListeningExercise } from '@/components/exercises/ListeningExercise'
 import type { Exercise } from '@/types/exercise'
 import { useToast } from '@/components/ui/use-toast'
 
+interface Answer {
+  questionId: string
+  answer: string
+}
+
 interface ExerciseResults {
   score: number
   correctCount: number
   totalQuestions: number
   attempt: any
   progress: any
+}
+
+interface BaseExerciseProps {
+  exercise: Exercise
+  onSubmit: (answers: Record<string, string>) => Promise<void>
 }
 
 export default function ExercisePage({ params }: { params: { id: string } }) {
@@ -31,38 +41,43 @@ export default function ExercisePage({ params }: { params: { id: string } }) {
     queryFn: async () => {
       const response = await fetch(`/api/exercises/${params.id}`)
       if (!response.ok) {
-        throw new Error('Erro ao carregar exercício')
+        throw new Error('Error loading exercise')
       }
       return response.json()
     }
   })
 
-  const handleSubmit = async (answers: Array<{ questionId: string; answer: string }>) => {
+  const handleComplete = async (score: number, answers: Record<string, string>) => {
     try {
       const response = await fetch(`/api/exercises/${params.id}/answers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ 
+          answers: Object.entries(answers).map(([questionId, answer]) => ({
+            questionId,
+            answer
+          }))
+        }),
       })
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Erro ao enviar respostas')
+        throw new Error(error.error || 'Error submitting answers')
       }
 
       const results = await response.json()
       setResults(results)
       toast({
-        title: "Sucesso",
-        description: "Respostas enviadas com sucesso!",
+        title: "Success",
+        description: "Exercise completed successfully!",
       })
     } catch (error) {
-      console.error('Erro ao enviar respostas:', error)
+      console.error('Error completing exercise:', error)
       toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Erro ao enviar respostas",
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error completing exercise",
         variant: "destructive"
       })
     }
@@ -72,7 +87,7 @@ export default function ExercisePage({ params }: { params: { id: string } }) {
     return (
       <div className="p-6">
         <div className="flex justify-center items-center h-32">
-          <p className="text-gray-500">Carregando exercício...</p>
+          <p className="text-gray-500">Loading exercise...</p>
         </div>
       </div>
     )
@@ -82,7 +97,7 @@ export default function ExercisePage({ params }: { params: { id: string } }) {
     return (
       <div className="p-6">
         <Card className="p-6">
-          <p className="text-center text-gray-500">Exercício não encontrado</p>
+          <p className="text-center text-gray-500">Exercise not found</p>
         </Card>
       </div>
     )
@@ -98,30 +113,30 @@ export default function ExercisePage({ params }: { params: { id: string } }) {
       {exercise.type === 'reading' && (
         <ReadingExercise
           exercise={exercise}
-          onSubmit={handleSubmit}
+          onComplete={handleComplete}
         />
       )}
       
       {exercise.type === 'listening' && (
         <ListeningExercise
           exercise={exercise}
-          onSubmit={handleSubmit}
+          onComplete={handleComplete}
         />
       )}
       
       {exercise.type === 'dictation' && (
         <DictationExercise
           exercise={exercise}
-          onSubmit={handleSubmit}
+          onComplete={handleComplete}
         />
       )}
 
       {results && (
         <Card className="mt-8 p-6">
-          <h2 className="text-xl font-semibold mb-4">Resultados</h2>
+          <h2 className="text-xl font-semibold mb-4">Results</h2>
           <div className="space-y-2">
-            <p>Pontuação: {results.score}%</p>
-            <p>Respostas corretas: {results.correctCount} de {results.totalQuestions}</p>
+            <p>Score: {results.score}%</p>
+            <p>Correct answers: {results.correctCount} of {results.totalQuestions}</p>
           </div>
         </Card>
       )}

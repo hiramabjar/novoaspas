@@ -73,7 +73,6 @@ export default function CreateListeningExercisePage() {
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-8">Create Listening Exercise</h1>
       <ListeningExerciseForm
-        modules={modules}
         languages={languages}
         levels={levels}
         onSubmit={handleSubmit}

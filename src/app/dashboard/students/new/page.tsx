@@ -1,21 +1,53 @@
 'use client'
 
 import { DashboardLayout } from '@/components/layouts/DashboardLayout'
-import { useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
+import { useToast } from '@/components/ui/use-toast'
+import { useForm } from 'react-hook-form'
+import { StudentForm } from '@/components/students/StudentForm'
+
+interface StudentFormData {
+  name: string
+  email: string
+  password?: string
+  enrollments: Array<{
+    languageId: string
+    levelId: string
+  }>
+}
 
 export default function NewStudentPage() {
   const router = useRouter()
-  const { register, handleSubmit } = useForm()
+  const { toast } = useToast()
+  const form = useForm<StudentFormData>()
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data: StudentFormData) => {
     try {
-      // Implementar criação do aluno
-      console.log(data)
-      router.push('/dashboard/students')
+      const response = await fetch('/api/admin/students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create student')
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Student created successfully'
+      })
+
+      router.push('/admin/students')
     } catch (error) {
-      console.error('Erro ao criar aluno:', error)
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create student',
+        variant: 'destructive'
+      })
     }
   }
 
@@ -33,62 +65,7 @@ export default function NewStudentPage() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Novo Aluno</h1>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Nome
-                </label>
-                <input
-                  {...register('name')}
-                  type="text"
-                  required
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Email
-                </label>
-                <input
-                  {...register('email')}
-                  type="email"
-                  required
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Senha
-                </label>
-                <input
-                  {...register('password')}
-                  type="password"
-                  required
-                  className="input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Nível
-                </label>
-                <select {...register('level')} className="input">
-                  <option value="basic">Básico</option>
-                  <option value="intermediate">Intermediário</option>
-                  <option value="advanced">Avançado</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button type="submit" className="btn-primary">
-                Criar Aluno
-              </button>
-            </div>
-          </form>
+          <StudentForm onSubmit={onSubmit} />
         </div>
       </div>
     </DashboardLayout>

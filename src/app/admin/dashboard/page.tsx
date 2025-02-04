@@ -7,6 +7,7 @@ import { StatsOverview } from '@/components/dashboard/StatsOverview'
 import { Card } from '@/components/ui/card'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Clock } from 'lucide-react'
+import api from '@/lib/api'
 
 interface RecentActivity {
   id: string
@@ -25,6 +26,25 @@ interface TopStudent {
   totalTime: string
 }
 
+interface DashboardStats {
+  activeStudents: {
+    total: number
+    change: number
+  }
+  totalExercises: {
+    total: number
+    change: number
+  }
+  completionRate: {
+    total: number
+    change: number
+  }
+  averageTime: {
+    total: number
+    change: number
+  }
+}
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -34,18 +54,6 @@ export default function AdminDashboard() {
       router.replace('/login')
     }
   }, [session, status, router])
-
-  if (status === 'loading') {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
-      </div>
-    )
-  }
-
-  if (!session?.user || session.user.role !== 'admin') {
-    return null
-  }
 
   const { data: recentActivities } = useQuery<RecentActivity[]>({
     queryKey: ['recent-activities'],
@@ -65,11 +73,57 @@ export default function AdminDashboard() {
     }
   })
 
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      const response = await api.get('/api/admin/stats/overview')
+      const data = response.data
+      return {
+        activeStudents: {
+          total: data.totalStudents || 0,
+          change: 0
+        },
+        totalExercises: {
+          total: data.totalExercises || 0,
+          change: 0
+        },
+        completionRate: {
+          total: Math.round((data.totalAttempts / (data.totalStudents * data.totalExercises)) * 100) || 0,
+          change: 0
+        },
+        averageTime: {
+          total: Math.round(data.averageTime) || 0,
+          change: 0
+        }
+      }
+    }
+  })
+
+  if (status === 'loading') {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+      </div>
+    )
+  }
+
+  if (!session?.user || session.user.role !== 'admin') {
+    return null
+  }
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  if (!stats) {
+    return <div>Error loading stats</div>
+  }
+
   return (
     <div className="container mx-auto py-8 space-y-6">
       <h1 className="text-3xl font-bold mb-8">Dashboard Administrativo</h1>
       
-      <StatsOverview />
+      <StatsOverview stats={stats} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-6 shadow-lg">

@@ -1,39 +1,42 @@
 import { PrismaClient } from '@prisma/client'
-import fs from 'fs'
-import path from 'path'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-async function main() {
+async function createAdmin() {
   try {
-    // Leitura do arquivo de áudio
-    const audioPath = path.join(process.cwd(), 'path/to/your/audio/files', 'audio.mp3')
-    const audioData = fs.readFileSync(audioPath)
+    const email = 'admin@example.com'
+    const password = 'admin123'
 
-    // Criar exercício com áudio
-    const exercise = await prisma.exercise.create({
-      data: {
-        title: 'Título do Exercício',
-        description: 'Descrição do Exercício',
-        type: 'LISTENING', // ou outro tipo apropriado
-        level: 'BEGINNER', // ou outro nível apropriado
-        moduleId: 'ID_DO_MODULO', // substitua pelo ID correto
-        audioData: audioData, // Incluindo os dados do áudio
-        // ... outros campos necessários
-      },
+    // Check if admin already exists
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email }
     })
 
-    console.log('Exercício criado com sucesso:', exercise.id)
+    if (existingAdmin) {
+      console.log('Admin user already exists')
+      return
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Create admin user
+    const admin = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name: 'Admin',
+        role: 'admin'
+      }
+    })
+
+    console.log('Admin user created:', admin)
   } catch (error) {
-    console.error('Erro ao criar exercício:', error)
+    console.error('Error creating admin:', error)
+  } finally {
+    await prisma.$disconnect()
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  }) 
+createAdmin() 

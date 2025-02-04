@@ -1,81 +1,119 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
-import { ListeningExercise } from '@/components/exercises/ListeningExercise'
-import { useToast } from '@/components/ui/use-toast'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
+import { Card } from '@/components/ui/card'
+import { ListeningExercise } from '@/components/exercises/ListeningExercise'
+import type { Exercise } from '@/types/exercise'
+import { useToast } from '@/components/ui/use-toast'
 
-export default function ListeningExercisePage() {
-  const params = useParams()
+interface Answer {
+  questionId: string
+  answer: string
+}
+
+interface ExerciseResults {
+  score: number
+  correctCount: number
+  totalQuestions: number
+  attempt: any
+  progress: any
+}
+
+export default function ListeningExercisePage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { toast } = useToast()
+  const [results, setResults] = useState<ExerciseResults | null>(null)
 
-  const { data: exercise, isLoading } = useQuery({
+  const { data: exercise, isLoading } = useQuery<Exercise>({
     queryKey: ['exercise', params.id],
     queryFn: async () => {
       const response = await fetch(`/api/exercises/${params.id}`)
-      if (!response.ok) throw new Error('Failed to fetch exercise')
+      if (!response.ok) {
+        throw new Error('Error loading exercise')
+      }
       return response.json()
     }
   })
 
   const handleComplete = async (score: number, answers: Record<string, string>) => {
     try {
-      const response = await fetch(`/api/exercises/${params.id}/progress`, {
+      const response = await fetch(`/api/exercises/${params.id}/answers`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          score,
-          answers
-        })
+        body: JSON.stringify({ 
+          answers: Object.entries(answers).map(([questionId, answer]) => ({
+            questionId,
+            answer
+          }))
+        }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save progress')
+        const error = await response.json()
+        throw new Error(error.error || 'Error submitting answers')
       }
 
+      const results = await response.json()
+      setResults(results)
       toast({
-        title: 'Success',
-        description: 'Progress saved successfully!'
+        title: "Success",
+        description: "Exercise completed successfully!",
       })
-
-      // Redirect to exercises list after a short delay
-      setTimeout(() => {
-        router.push('/student/exercises')
-      }, 2000)
     } catch (error) {
+      console.error('Error completing exercise:', error)
       toast({
-        title: 'Error',
-        description: 'Failed to save progress.',
-        variant: 'destructive'
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error completing exercise",
+        variant: "destructive"
       })
     }
   }
 
   if (isLoading) {
-    return <div>Loading...</div>
+    return (
+      <div className="p-6">
+        <div className="flex justify-center items-center h-32">
+          <p className="text-gray-500">Loading exercise...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!exercise) {
-    return <div>Exercise not found</div>
+    return (
+      <div className="p-6">
+        <Card className="p-6">
+          <p className="text-center text-gray-500">Exercise not found</p>
+        </Card>
+      </div>
+    )
   }
 
   return (
     <div className="container mx-auto py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-2">{exercise.title}</h1>
+        <p className="text-gray-600">{exercise.description}</p>
+      </div>
+
       <ListeningExercise
-        id={exercise.id}
-        title={exercise.title}
-        description={exercise.description}
-        content={exercise.content}
-        audioUrl={exercise.audioUrl}
-        questions={exercise.questions.map((q: any) => ({
-          ...q,
-          options: JSON.parse(q.options)
-        }))}
+        exercise={exercise}
         onComplete={handleComplete}
       />
+
+      {results && (
+        <Card className="mt-8 p-6">
+          <h2 className="text-xl font-semibold mb-4">Results</h2>
+          <div className="space-y-2">
+            <p>Score: {results.score}%</p>
+            <p>Correct answers: {results.correctCount} of {results.totalQuestions}</p>
+          </div>
+        </Card>
+      )}
     </div>
   )
 } 

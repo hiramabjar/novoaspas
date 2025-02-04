@@ -1,17 +1,17 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { verifyPassword } from '@/lib/auth/password-utils'
-import prisma from '@/lib/database/prisma'
+import { comparePassword } from '@/lib/auth/password-utils'
+import { prisma } from '@/lib/prisma'
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: 'credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        email: { label: 'Email', type: 'text' },
+        password: { label: 'Password', type: 'password' }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           return null
         }
@@ -20,11 +20,11 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email }
         })
 
-        if (!user) {
+        if (!user || !user.password) {
           return null
         }
 
-        const isPasswordValid = await verifyPassword(credentials.password, user.password)
+        const isPasswordValid = await comparePassword(credentials.password, user.password)
 
         if (!isPasswordValid) {
           return null
@@ -32,28 +32,31 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: user.id,
-          email: user.email,
-          name: user.name,
+          email: user.email || '',
+          name: user.name || '',
           role: user.role
         }
       }
     })
   ],
+  pages: {
+    signIn: '/auth/login'
+  },
   callbacks: {
-    jwt: async ({ token, user }) => {
+    async jwt({ token, user }) {
       if (user) {
         token.role = user.role
       }
       return token
     },
-    session: async ({ session, token }) => {
-      if (token) {
-        session.user.role = token.role
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.role = token.role as string
       }
       return session
     }
   },
-  pages: {
-    signIn: '/auth/login'
+  session: {
+    strategy: 'jwt'
   }
 } 

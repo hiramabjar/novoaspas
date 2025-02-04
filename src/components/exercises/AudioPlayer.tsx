@@ -31,9 +31,41 @@ export function AudioPlayer({
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.load()
+      audioRef.current.addEventListener('timeupdate', handleTimeUpdate)
+      audioRef.current.addEventListener('loadedmetadata', handleLoadedMetadata)
+      audioRef.current.addEventListener('ended', handleEnded)
     }
-  }, [audioUrl])
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.removeEventListener('timeupdate', handleTimeUpdate)
+        audioRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata)
+        audioRef.current.removeEventListener('ended', handleEnded)
+      }
+    }
+  }, [])
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      const value = (audioRef.current.currentTime / audioRef.current.duration) * 100
+      setProgress(value)
+      setCurrentTime(audioRef.current.currentTime)
+    }
+  }
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration)
+    }
+    setIsLoaded(true)
+  }
+
+  const handleEnded = () => {
+    setIsPlaying(false)
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0
+    }
+  }
 
   const togglePlay = () => {
     if (audioRef.current) {
@@ -51,17 +83,10 @@ export function AudioPlayer({
       audioRef.current.currentTime = 0
       setProgress(0)
       setCurrentTime(0)
-      if (isPlaying) {
+      if (!isPlaying) {
         audioRef.current.play()
+        setIsPlaying(true)
       }
-    }
-  }
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      const value = (audioRef.current.currentTime / audioRef.current.duration) * 100
-      setProgress(value)
-      setCurrentTime(audioRef.current.currentTime)
     }
   }
 
@@ -76,25 +101,19 @@ export function AudioPlayer({
     }
   }
 
-  const handleVolumeChange = (value: number[]) => {
-    const newVolume = value[0]
+  const handleVolumeChange = (newVolume: number) => {
     if (audioRef.current) {
       audioRef.current.volume = newVolume
       setVolume(newVolume)
-      if (onVolumeChange) {
-        onVolumeChange(newVolume)
-      }
+      onVolumeChange?.(newVolume)
     }
   }
 
-  const handlePlaybackRateChange = (value: number[]) => {
-    const newRate = value[0]
+  const handlePlaybackRateChange = (newRate: number) => {
     if (audioRef.current) {
       audioRef.current.playbackRate = newRate
       setPlaybackRate(newRate)
-      if (onPlaybackRateChange) {
-        onPlaybackRateChange(newRate)
-      }
+      onPlaybackRateChange?.(newRate)
     }
   }
 
@@ -104,19 +123,6 @@ export function AudioPlayer({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration)
-    }
-    setIsLoaded(true)
-  }
-
-  const getVolumeIcon = () => {
-    if (volume === 0) return <VolumeX className="h-4 w-4" />
-    if (volume < 0.5) return <Volume1 className="h-4 w-4" />
-    return <Volume2 className="h-4 w-4" />
-  }
-
   return (
     <Card className={`p-4 ${className}`}>
       <audio
@@ -124,7 +130,7 @@ export function AudioPlayer({
         src={audioUrl}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={handleEnded}
       />
       
       <div className="space-y-4">
@@ -179,13 +185,15 @@ export function AudioPlayer({
               variant="ghost"
               size="icon"
               className="w-8 h-8"
-              onClick={() => handleVolumeChange([volume === 0 ? 1 : 0])}
+              onClick={() => handleVolumeChange(volume === 0 ? 1 : 0)}
             >
-              {getVolumeIcon()}
+              {volume === 0 ? <VolumeX className="h-4 w-4" /> : 
+               volume < 0.5 ? <Volume1 className="h-4 w-4" /> : 
+               <Volume2 className="h-4 w-4" />}
             </Button>
             <Slider
               value={[volume]}
-              onValueChange={handleVolumeChange}
+              onValueChange={(value) => handleVolumeChange(value[0])}
               max={1}
               step={0.1}
               className="w-24"
@@ -196,7 +204,7 @@ export function AudioPlayer({
             <FastForward className="h-4 w-4 text-gray-500" />
             <Slider
               value={[playbackRate]}
-              onValueChange={handlePlaybackRateChange}
+              onValueChange={(value) => handlePlaybackRateChange(value[0])}
               min={0.5}
               max={2}
               step={0.25}

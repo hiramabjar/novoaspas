@@ -1,9 +1,10 @@
 import { NextAuthOptions } from 'next-auth'
-import { PrismaAdapter } from '@auth/prisma-adapter'
-import prisma from '@/lib/database/prisma'
+import { PrismaAdapter } from '@next-auth/prisma-adapter'
+import { prisma } from '@/lib/prisma'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
+import { compare } from 'bcryptjs'
+import { User } from '@prisma/client'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -15,34 +16,46 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        email: { label: 'Email', type: 'text' },
+        email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Credenciais inválidas')
+          throw new Error('Email e senha são obrigatórios')
         }
 
         const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            password: true,
+            role: true
           }
         })
 
-        if (!user || !user?.hashedPassword) {
-          throw new Error('Credenciais inválidas')
+        if (!user || !user.password) {
+          throw new Error('Email ou senha inválidos')
         }
 
-        const isCorrectPassword = await bcrypt.compare(
+        const isValid = await compare(
           credentials.password,
-          user.hashedPassword
+          user.password
         )
 
-        if (!isCorrectPassword) {
-          throw new Error('Credenciais inválidas')
+        if (!isValid) {
+          throw new Error('Email ou senha inválidos')
         }
 
-        return user
+        return {
+          id: user.id,
+          email: user.email || '',
+          name: user.name || '',
+          role: user.role
+        }
       }
     })
   ],
@@ -54,18 +67,20 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         return {
           ...token,
-          id: user.id,
           role: user.role
         }
       }
       return token
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as string
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.sub!,
+          role: token.role!
+        }
       }
-      return session
     }
   },
   pages: {

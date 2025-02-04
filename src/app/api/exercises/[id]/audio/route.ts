@@ -11,83 +11,58 @@ export const revalidate = 0;
 
 export async function GET(
   request: Request,
-  context: { params: { id: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Validar ID
-    if (!context.params?.id) {
-      return NextResponse.json(
-        { error: 'ID do exercício não fornecido' },
-        { status: 400 }
-      );
-    }
-
-    // Obter parâmetros da URL
-    const { searchParams } = new URL(request.url);
-    const lang = searchParams.get('lang') || 'en';
-
     // Buscar o exercício
     const exercise = await prisma.exercise.findUnique({
-      where: { 
-        id: context.params.id 
-      },
-      select: {
-        content: true,
-        language: {
-          select: { 
-            code: true 
-          }
-        }
+      where: { id: params.id },
+      include: {
+        language: true
       }
     });
 
-    if (!exercise?.content) {
+    if (!exercise) {
       return NextResponse.json(
-        { error: 'Exercício não encontrado' },
+        { error: 'Exercise not found' },
         { status: 404 }
       );
     }
 
-    // Gerar o áudio
+    const lang = exercise.language.code.toLowerCase() as "en" | "es" | "fr" | "de" | "it" | "pt";
     const audioBuffer = await textToSpeech(exercise.content, lang);
+    const uint8Array = new Uint8Array(audioBuffer);
 
-    // Headers para streaming e cache
-    const headers = new Headers({
-      'Content-Type': 'audio/mpeg',
-      'Cache-Control': 'public, max-age=3600',
-      'Content-Length': audioBuffer.length.toString(),
-      'Accept-Ranges': 'bytes'
-    });
+    const rangeHeader = request.headers.get('range');
+    const headers = new Headers();
+    headers.set('Content-Type', 'audio/mpeg');
+    headers.set('Accept-Ranges', 'bytes');
+    headers.set('Content-Length', uint8Array.byteLength.toString());
 
-    // Suporte a streaming de áudio
-    const range = request.headers.get('range');
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : audioBuffer.length - 1;
-      const chunkSize = end - start + 1;
-
-      headers.set('Content-Range', `bytes ${start}-${end}/${audioBuffer.length}`);
-      headers.set('Content-Length', chunkSize.toString());
-
-      return new NextResponse(audioBuffer.slice(start, end + 1), {
-        status: 206,
+    if (!rangeHeader) {
+      return new NextResponse(uint8Array, {
+        status: 200,
         headers
       });
     }
 
-    // Resposta completa se não houver range
-    return new NextResponse(audioBuffer, {
-      status: 200,
+    const parts = rangeHeader.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : uint8Array.byteLength - 1;
+    const chunksize = end - start + 1;
+
+    headers.set('Content-Range', `bytes ${start}-${end}/${uint8Array.byteLength}`);
+    headers.set('Content-Length', chunksize.toString());
+
+    const chunk = uint8Array.slice(start, end + 1);
+    return new NextResponse(chunk, {
+      status: 206,
       headers
     });
   } catch (error) {
-    console.error('Erro ao gerar áudio:', error);
+    console.error('Error generating audio:', error);
     return NextResponse.json(
-      { 
-        error: 'Erro ao gerar áudio',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
-      },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

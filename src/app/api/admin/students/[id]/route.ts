@@ -3,6 +3,17 @@ import prisma from '@/lib/database/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth-options'
 import { hashPassword } from '@/lib/auth/password-utils'
+import { Prisma, PrismaClient } from '@prisma/client'
+
+interface UpdateStudentData {
+  name: string
+  email: string
+  password?: string
+  enrollments: Array<{
+    languageId: string
+    levelId: string
+  }>
+}
 
 export async function PUT(
   request: Request,
@@ -13,15 +24,15 @@ export async function PUT(
     
     if (!session?.user?.email || session.user.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Não autorizado' },
+        { error: 'Unauthorized' },
         { status: 401 }
       )
     }
 
-    const data = await request.json()
+    const data = await request.json() as UpdateStudentData
     const { id } = params
 
-    // Verificar se o email já está em uso por outro usuário
+    // Check if email is already in use by another user
     const existingUser = await prisma.user.findFirst({
       where: {
         email: data.email,
@@ -31,15 +42,15 @@ export async function PUT(
 
     if (existingUser) {
       return NextResponse.json(
-        { error: 'Email já está em uso' },
+        { error: 'Email is already in use' },
         { status: 400 }
       )
     }
 
-    // Atualizar usuário e matrículas
-    const updatedUser = await prisma.$transaction(async (tx) => {
-      // Atualizar dados do usuário
-      const updateData: any = {
+    // Update user and enrollments
+    const updatedUser = await prisma.$transaction(async (prisma) => {
+      // Update user data
+      const updateData: Prisma.UserUpdateInput = {
         name: data.name,
         email: data.email,
       }
@@ -48,7 +59,7 @@ export async function PUT(
         updateData.password = await hashPassword(data.password)
       }
 
-      const user = await tx.user.update({
+      const user = await prisma.user.update({
         where: { id },
         data: updateData,
         include: {
@@ -56,26 +67,30 @@ export async function PUT(
         }
       })
 
-      // Atualizar matrículas
+      // Update enrollments if student profile exists
       if (user.studentProfile) {
-        // Remover matrículas antigas
-        await tx.enrollment.deleteMany({
-          where: { studentProfileId: user.studentProfile.id }
+        // Remove old enrollments
+        await prisma.enrollment.deleteMany({
+          where: { 
+            studentProfileId: user.studentProfile.id 
+          }
         })
 
-        // Criar novas matrículas
-        await tx.enrollment.createMany({
-          data: data.enrollments.map((enrollment: any) => ({
-            studentProfileId: user.studentProfile.id,
-            languageId: enrollment.languageId,
-            levelId: enrollment.levelId,
-            status: 'ACTIVE'
-          }))
-        })
+        // Create new enrollments
+        if (data.enrollments && data.enrollments.length > 0) {
+          await prisma.enrollment.createMany({
+            data: data.enrollments.map(enrollment => ({
+              studentProfileId: user.studentProfile!.id,
+              languageId: enrollment.languageId,
+              levelId: enrollment.levelId,
+              status: 'active'
+            }))
+          })
+        }
       }
 
-      // Retornar usuário atualizado com todas as relações
-      return tx.user.findUnique({
+      // Return updated user with all relations
+      return prisma.user.findUnique({
         where: { id },
         include: {
           studentProfile: {
@@ -95,9 +110,9 @@ export async function PUT(
     return NextResponse.json({ user: updatedUser })
 
   } catch (error) {
-    console.error('Erro ao atualizar aluno:', error)
+    console.error('Error updating student:', error)
     return NextResponse.json(
-      { error: 'Erro ao atualizar aluno' },
+      { error: 'Error updating student' },
       { status: 500 }
     )
   }

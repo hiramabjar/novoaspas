@@ -1,49 +1,34 @@
-import { Exercise as PrismaExercise } from '@prisma/client'
+import { Exercise as PrismaExercise, Question as PrismaQuestion, Language, Level, Module, ExerciseAttempt, ExerciseProgress } from '@prisma/client'
 
-export interface Question {
-  id: string
-  exerciseId: string
-  question: string
+export interface Question extends Omit<PrismaQuestion, 'options'> {
   options: string
-  correctAnswer: string
-  createdAt: Date
-  updatedAt: Date
+  parsedOptions?: string[]
 }
 
-export interface Exercise extends PrismaExercise {
+export interface Exercise extends Omit<PrismaExercise, 'content' | 'type'> {
+  content: string
+  type: 'reading' | 'listening' | 'dictation'
   questions: Question[]
-}
-
-export type Module = {
-  id: string
-  name: string
-  description: string
-  order: number
-  createdAt: Date
-  updatedAt: Date
-}
-
-export type Language = {
-  id: string
-  name: string
-  code: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-export type Level = {
-  id: string
-  name: string
-  code: string
-  createdAt: Date
-  updatedAt: Date
+  language: Language
+  level: Level
+  module?: Module | null
+  attempts?: ExerciseAttempt[]
+  progress?: ExerciseProgress[]
 }
 
 export interface ExerciseWithRelations extends Exercise {
   questions: Question[]
-  language?: Language
-  level?: Level
-  module?: Module
+  language: Language
+  level: Level
+  module?: Module | null
+  attempts?: ExerciseAttempt[]
+  progress?: ExerciseProgress[]
+}
+
+export type QuestionFormData = {
+  question: string
+  options: string[]
+  correctAnswer: string
 }
 
 export type ExerciseFormData = {
@@ -53,15 +38,40 @@ export type ExerciseFormData = {
   type: 'reading' | 'listening' | 'dictation'
   languageId: string
   levelId: string
-  questions: {
-    question: string
-    options: any
-    correctAnswer: string
-  }[]
+  moduleId?: string
+  questions: QuestionFormData[]
 }
 
 export interface ExerciseFormProps {
   exercise?: ExerciseWithRelations
   onSubmit?: (data: ExerciseFormData) => Promise<void>
   onSuccess?: () => void
+}
+
+export interface ExerciseAttemptData {
+  exerciseId: string
+  userId: string
+  score: number
+  answers: Record<string, string>
+  startedAt: Date
+  completedAt?: Date
+}
+
+export interface ExerciseProgressData extends ExerciseProgress {
+  exercise?: Exercise
+}
+
+export interface ExerciseStats {
+  totalExercises: number
+  completedExercises: number
+  averageScore: number
+  averageTime: number
+  exercisesByType: {
+    reading: number
+    listening: number
+    dictation: number
+  }
+  exercisesByLanguage: Record<string, number>
+  exercisesByLevel: Record<string, number>
+  recentActivity: ExerciseProgressData[]
 } 

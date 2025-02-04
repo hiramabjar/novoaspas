@@ -25,7 +25,8 @@ export default function ExercisesPage() {
       if (!response.ok) {
         throw new Error('Erro ao carregar exercícios')
       }
-      return response.json()
+      const data = await response.json()
+      return data.exercises || []
     },
     staleTime: 0,
     refetchOnMount: true

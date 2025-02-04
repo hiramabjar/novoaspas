@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/database/prisma'
 import { authOptions } from '@/lib/auth/auth-options'
 import { textToSpeech } from '@/lib/text-to-speech'
+import { Question } from '@prisma/client'
+import { QuestionFormData } from '@/types/exercise'
+
 export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
@@ -36,11 +39,11 @@ export async function POST(request: Request) {
         languageId: data.languageId,
         levelId: data.levelId,
         questions: {
-          create: data.questions.map((q: any) => ({
+          create: data.questions.map((q: QuestionFormData) => ({
             question: q.question,
-            options: JSON.stringify(q.options),
-            correctAnswer: q.correctAnswer
-          }))
+            options: q.options.join(','),
+            correctAnswer: q.correctAnswer,
+          })),
         }
       },
       include: {
@@ -119,37 +122,37 @@ export async function PUT(request: Request) {
 }
 
 export async function GET() {
+  const session = await getServerSession(authOptions)
+
+  if (!session?.user) {
+    return new NextResponse('Unauthorized', { status: 401 })
+  }
+
   try {
     const exercises = await prisma.exercise.findMany({
       include: {
-        module: true,
+        questions: true,
         language: true,
         level: true,
-        questions: true
+        module: true,
+        attempts: true,
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     })
 
-    return new NextResponse(
-      JSON.stringify({ exercises }),
-      { 
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+    const formattedExercises = exercises.map((exercise) => ({
+      ...exercise,
+      questions: exercise.questions.map((q: Question) => ({
+        ...q,
+        options: q.options ? q.options.split(',') : [],
+      })),
+    }))
+
+    return NextResponse.json({ exercises: formattedExercises })
   } catch (error) {
-    console.error('Erro ao buscar exercícios:', error)
-    return new NextResponse(
-      JSON.stringify({ 
-        error: 'Erro ao buscar exercícios',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
-      }),
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+    console.error('Error fetching exercises:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
   }
 } 

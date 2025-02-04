@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
+
+interface StatsResult {
+  averageScore: number
+  averageTime: number
+}
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -11,134 +17,49 @@ export async function GET() {
   }
 
   try {
-    // Busca dados do mês atual
-    const currentDate = new Date()
-    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-
-    // Busca dados do mês anterior
-    const firstDayOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-    const lastDayOfLastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
-
-    // Estatísticas de alunos
+    // Get total students
     const totalStudents = await prisma.user.count({
-      where: { role: 'student' }
-    })
-
-    const activeStudents = await prisma.user.count({
       where: {
-        role: 'student',
-        exerciseAttempts: {
-          some: {
-            completedAt: {
-              gte: firstDayOfMonth,
-              lte: lastDayOfMonth
-            }
-          }
-        }
+        role: 'student'
       }
     })
 
-    const lastMonthActiveStudents = await prisma.user.count({
-      where: {
-        role: 'student',
-        exerciseAttempts: {
-          some: {
-            completedAt: {
-              gte: firstDayOfLastMonth,
-              lte: lastDayOfLastMonth
-            }
-          }
-        }
-      }
-    })
-
-    // Estatísticas de exercícios
+    // Get total exercises
     const totalExercises = await prisma.exercise.count()
-    const lastMonthExercises = await prisma.exercise.count({
-      where: {
-        createdAt: {
-          lt: firstDayOfMonth
-        }
-      }
-    })
 
-    // Taxa de conclusão
+    // Get total exercise attempts
     const totalAttempts = await prisma.exerciseAttempt.count({
       where: {
         completedAt: {
-          gte: firstDayOfMonth,
-          lte: lastDayOfMonth
+          not: null
         }
       }
     })
 
-    const completedAttempts = await prisma.exerciseAttempt.count({
-      where: {
-        completedAt: {
-          gte: firstDayOfMonth,
-          lte: lastDayOfMonth
-        },
-        completed: true
-      }
-    })
+    // Get average score and time using raw SQL for better performance
+    const stats = await prisma.$queryRaw<StatsResult[]>`
+      SELECT 
+        COALESCE(ROUND(AVG(CAST(score as FLOAT)), 2), 0) as "averageScore",
+        COALESCE(ROUND(AVG(CAST(EXTRACT(EPOCH FROM (completedAt - startedAt)) / 60 as FLOAT)), 2), 0) as "averageTime"
+      FROM "ExerciseAttempt"
+      WHERE "completedAt" IS NOT NULL
+      AND score IS NOT NULL
+    `
 
-    const lastMonthTotalAttempts = await prisma.exerciseAttempt.count({
-      where: {
-        completedAt: {
-          gte: firstDayOfLastMonth,
-          lte: lastDayOfLastMonth
-        }
-      }
-    })
-
-    const lastMonthCompletedAttempts = await prisma.exerciseAttempt.count({
-      where: {
-        completedAt: {
-          gte: firstDayOfLastMonth,
-          lte: lastDayOfLastMonth
-        },
-        completed: true
-      }
-    })
-
-    // Tempo médio de conclusão
-    const attempts = await prisma.exerciseAttempt.findMany({
-      where: {
-        completedAt: {
-          gte: firstDayOfMonth,
-          lte: lastDayOfMonth
-        },
-        completed: true
-      },
-      select: {
-        startedAt: true,
-        completedAt: true
-      }
-    })
-
-    const totalTime = attempts.reduce((acc, attempt) => {
-      const time = attempt.completedAt.getTime() - attempt.startedAt.getTime()
-      return acc + time
-    }, 0)
-
-    const averageTime = attempts.length > 0 ? totalTime / attempts.length : 0
-    const averageMinutes = Math.round(averageTime / (1000 * 60))
+    const { averageScore = 0, averageTime = 0 } = stats[0] || {}
 
     return NextResponse.json({
       totalStudents,
-      activeStudents,
-      studentsGrowth: activeStudents - lastMonthActiveStudents,
       totalExercises,
-      exercisesGrowth: totalExercises - lastMonthExercises,
-      completionRate: totalAttempts > 0 ? (completedAttempts / totalAttempts) * 100 : 0,
-      previousCompletionRate: lastMonthTotalAttempts > 0 
-        ? (lastMonthCompletedAttempts / lastMonthTotalAttempts) * 100 
-        : 0,
-      averageCompletionTime: `${averageMinutes}min`
+      totalAttempts,
+      averageScore,
+      averageTime
     })
   } catch (error) {
-    console.error('Error fetching admin stats:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    console.error('Error fetching overview stats:', error)
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
   }
 } 

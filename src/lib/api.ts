@@ -1,7 +1,11 @@
 import axios from 'axios'
+import type { AxiosInstance } from 'axios'
 
-export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+const api: AxiosInstance = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
 })
 
 // Interceptor para adicionar o token de autenticação
@@ -15,8 +19,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Redirecionar para login ou renovar token
+      // Handle unauthorized error
+      window.location.href = '/auth/login'
     }
     return Promise.reject(error)
   }
-) 
+)
+
+export default api 

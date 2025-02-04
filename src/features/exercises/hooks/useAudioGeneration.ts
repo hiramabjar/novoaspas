@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { generateAudioFromText } from '../api/generate-audio'
+import { textToSpeech } from '@/lib/text-to-speech'
 
 export const useAudioGeneration = () => {
   return useMutation({

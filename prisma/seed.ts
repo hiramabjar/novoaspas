@@ -104,7 +104,8 @@ async function main() {
         },
         create: {
           id: level.id,
-          name: level.name
+          name: level.name,
+          code: level.id
         }
       })
       console.log('Created level:', createdLevel)

@@ -1,44 +1,69 @@
 import { NextResponse } from 'next/server'
-import prisma from '@/lib/database/prisma'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth-options'
+import { authOptions } from '@/lib/auth'
+import prisma from '@/lib/database/prisma'
+import { Prisma, type ExerciseProgress } from '@prisma/client'
+
+interface ProgressData {
+  exerciseId: string
+  status: 'started' | 'completed'
+  score?: number
+}
+
+interface ProgressStats {
+  totalExercises: number
+  completedExercises: number
+  averageScore: number
+  streak: number
+}
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    const { exerciseId, status, score } = await request.json() as ProgressData
+
+    if (!exerciseId || !status) {
       return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
+        { error: 'Missing required fields' },
+        { status: 400 }
       )
     }
 
-    const data = await request.json()
-    const { exerciseId, score, answers } = data
-
-    // Registrar o progresso do exercício
-    const progress = await prisma.exerciseProgress.create({
-      data: {
+    const progress = await prisma.exerciseProgress.upsert({
+      where: {
+        userId_exerciseId: {
+          userId: session.user.id,
+          exerciseId
+        }
+      },
+      create: {
         userId: session.user.id,
         exerciseId,
-        status: 'COMPLETED',
-        score,
-        answers,
-        finishedAt: new Date(),
+        status,
+        score: score || null,
+        finishedAt: status === 'completed' ? new Date() : null,
         attempts: 1
+      },
+      update: {
+        status,
+        score: score || null,
+        finishedAt: status === 'completed' ? new Date() : null,
+        attempts: {
+          increment: 1
+        }
       }
     })
 
-    return NextResponse.json({ 
-      success: true,
-      progress 
-    })
-
+    return NextResponse.json({ progress })
   } catch (error) {
-    console.error('Erro ao salvar progresso:', error)
+    console.error('Error updating progress:', error)
     return NextResponse.json(
-      { error: 'Erro ao salvar progresso' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     )
   }
@@ -49,27 +74,26 @@ export async function GET() {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
-    // Buscar todas as estatísticas necessárias em uma única transação
-    const stats = await prisma.$transaction(async (tx) => {
-      // Total de exercícios disponíveis
+    const stats = await prisma.$transaction<ProgressStats>(async (tx) => {
       const totalExercises = await tx.exercise.count()
 
-      // Exercícios completados pelo usuário
       const completedExercises = await tx.exerciseProgress.count({
         where: {
           userId: session.user.id,
-          status: 'COMPLETED'
+          status: 'completed'
         }
       })
 
-      // Média de pontuação
       const scores = await tx.exerciseProgress.findMany({
         where: {
           userId: session.user.id,
-          status: 'COMPLETED',
+          status: 'completed',
           score: { not: null }
         },
         select: {
@@ -78,19 +102,18 @@ export async function GET() {
       })
 
       const averageScore = scores.length > 0
-        ? Math.round(scores.reduce((acc, curr) => acc + (curr.score || 0), 0) / scores.length)
+        ? Math.round(scores.reduce((acc: number, curr: { score: number | null }) => acc + (curr.score || 0), 0) / scores.length)
         : 0
 
-      // Calcular sequência de dias (streak)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
       const lastDaysActivities = await tx.exerciseProgress.findMany({
         where: {
           userId: session.user.id,
-          status: 'COMPLETED',
+          status: 'completed',
           finishedAt: {
-            gte: new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000) // últimos 30 dias
+            gte: new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
           }
         },
         select: {
@@ -101,22 +124,20 @@ export async function GET() {
         }
       })
 
-      // Converter as datas para dias únicos (sem hora)
       const uniqueDays = new Set(
-        lastDaysActivities.map(activity => {
+        lastDaysActivities.map((activity: { finishedAt: Date | null }) => {
           const date = new Date(activity.finishedAt!)
           date.setHours(0, 0, 0, 0)
           return date.getTime()
         })
       )
 
-      // Calcular streak atual
       let streak = 0
       let currentDate = today.getTime()
 
       while (uniqueDays.has(currentDate)) {
         streak++
-        currentDate -= 24 * 60 * 60 * 1000 // subtrair um dia
+        currentDate -= 24 * 60 * 60 * 1000
       }
 
       return {
@@ -128,11 +149,10 @@ export async function GET() {
     })
 
     return NextResponse.json(stats)
-
   } catch (error) {
-    console.error('Erro ao buscar progresso:', error)
+    console.error('Error fetching progress:', error)
     return NextResponse.json(
-      { error: 'Erro ao buscar progresso' },
+      { error: 'Internal Server Error' },
       { status: 500 }
     )
   }

@@ -1,69 +1,98 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, FieldValues } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+
+const loginSchema = z.object({
+  email: z.string().email('Email inválido'),
+  password: z.string().min(1, 'Senha é obrigatória')
+})
+
+type LoginFormData = z.infer<typeof loginSchema>
+
+interface FormField {
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onBlur: () => void
+  value: string
+  name: string
+  ref: React.Ref<HTMLInputElement>
+}
 
 export function LoginForm() {
   const router = useRouter()
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm()
+  const form = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: ''
+    }
+  })
 
-  const onSubmit = async (data: { email: string; password: string }) => {
+  const onSubmit = async (data: LoginFormData) => {
     try {
       const result = await signIn('credentials', {
         email: data.email,
         password: data.password,
-        redirect: false,
-        callbackUrl: '/dashboard'
+        redirect: false
       })
 
       if (result?.error) {
-        alert('Credenciais inválidas')
-      } else if (result?.url) {
-        router.push(result.url)
+        form.setError('root', { message: 'Credenciais inválidas' })
+        return
       }
+
+      router.push('/dashboard')
     } catch (error) {
-      console.error('Erro no login:', error)
-      alert('Erro ao fazer login')
+      console.error('Login error:', error)
+      form.setError('root', { message: 'Erro ao fazer login' })
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
-            {...register('email')}
-            id="email"
-            type="email"
-            required
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Senha
-          </label>
-          <input
-            {...register('password')}
-            id="password"
-            type="password"
-            required
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-          />
-        </div>
-      </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }: { field: FormField }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input {...field} type="email" placeholder="seu@email.com" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-      >
-        {isSubmitting ? 'Entrando...' : 'Entrar'}
-      </button>
-    </form>
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }: { field: FormField }) => (
+            <FormItem>
+              <FormLabel>Senha</FormLabel>
+              <FormControl>
+                <Input {...field} type="password" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {form.formState.errors.root && (
+          <p className="text-sm text-red-600">{form.formState.errors.root.message}</p>
+        )}
+
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? 'Entrando...' : 'Entrar'}
+        </Button>
+      </form>
+    </Form>
   )
 } 

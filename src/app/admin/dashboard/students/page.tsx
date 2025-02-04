@@ -2,22 +2,45 @@
 
 import { useState, useEffect } from 'react'
 import { StudentForm } from '@/components/students/StudentForm'
-import { User, StudentProfile, Enrollment, Language, Level } from '@prisma/client'
+import { User, Language, Level } from '@prisma/client'
+
+type Enrollment = {
+  id: string
+  languageId: string
+  levelId: string
+  language: Language
+  level: Level
+}
 
 type UserWithProfile = User & {
-  studentProfile?: StudentProfile & {
-    enrollments: (Enrollment & {
-      language: Language
-      level: Level
-    })[]
-  }
+  studentProfile?: {
+    id: string
+    userId: string
+    enrollments: Enrollment[]
+  } | null
+}
+
+interface StudentFormData {
+  name: string
+  email: string
+  password?: string
+  enrollments: Array<{
+    languageId: string
+    levelId: string
+  }>
+}
+
+interface ApiResponse {
+  students: UserWithProfile[]
+  error?: string
 }
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<UserWithProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [editingStudent, setEditingStudent] = useState<User | null>(null)
+  const [editingStudent, setEditingStudent] = useState<UserWithProfile | undefined>(undefined)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadStudents()
@@ -26,10 +49,18 @@ export default function StudentsPage() {
   async function loadStudents() {
     try {
       const response = await fetch('/api/admin/students')
-      const data = await response.json()
+      const data: ApiResponse = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
       setStudents(data.students || [])
+      setError(null)
     } catch (error) {
-      console.error('Erro ao carregar alunos:', error)
+      const message = error instanceof Error ? error.message : 'Erro ao carregar alunos'
+      console.error(message)
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -40,9 +71,39 @@ export default function StudentsPage() {
     setShowForm(true)
   }
 
+  const handleSubmit = async (data: StudentFormData) => {
+    try {
+      setError(null)
+      const url = editingStudent 
+        ? `/api/admin/students/${editingStudent.id}`
+        : '/api/admin/students'
+      
+      const method = editingStudent ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save student')
+      }
+
+      handleSuccess()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error saving student'
+      console.error(message)
+      setError(message)
+    }
+  }
+
   const handleSuccess = () => {
     setShowForm(false)
-    setEditingStudent(null)
+    setEditingStudent(undefined)
     loadStudents()
   }
 
@@ -56,14 +117,21 @@ export default function StudentsPage() {
         <h1 className="text-2xl font-bold">Alunos</h1>
         <button
           onClick={() => {
-            setEditingStudent(null)
+            setEditingStudent(undefined)
             setShowForm(true)
+            setError(null)
           }}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
           Novo Aluno
         </button>
       </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-md">
+          {error}
+        </div>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -75,14 +143,15 @@ export default function StudentsPage() {
               <button
                 onClick={() => {
                   setShowForm(false)
-                  setEditingStudent(null)
+                  setEditingStudent(undefined)
+                  setError(null)
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
                 ✕
               </button>
             </div>
-            <StudentForm onSuccess={handleSuccess} initialData={editingStudent} />
+            <StudentForm onSubmit={handleSubmit} initialData={editingStudent} />
           </div>
         </div>
       )}
