@@ -2,13 +2,22 @@ services:
   - type: web
     name: nextjs-app
     env: node
-    buildCommand: npm install && npx prisma generate && npx prisma db push && npx prisma db seed && npm run build
+    buildCommand: |
+      mkdir -p /opt/render/project/src/prisma &&
+      chmod 777 /opt/render/project/src/prisma &&
+      npm install &&
+      npx prisma generate &&
+      npx prisma db push &&
+      npx prisma db seed &&
+      npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
+      - key: DATABASE_URL
+        value: file:/opt/render/project/src/prisma/prod.db
     disk:
       name: sqlite
       mountPath: /opt/render/project/src/prisma

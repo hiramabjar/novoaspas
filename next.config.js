@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   experimental: {
-    // Removemos serverActions pois já está disponível por padrão
+    serverActions: true,
+  },
+  images: {
+    domains: ['github.com'],
   },
 }
 
