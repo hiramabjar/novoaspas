@@ -10,7 +10,7 @@ services:
       npm install &&
       npx prisma generate &&
       npx prisma migrate reset --force &&
-      npm run build
+      NODE_OPTIONS='--max_old_space_size=4096' npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
@@ -23,6 +23,8 @@ services:
         value: https://novoaspas.onrender.com
       - key: NEXTAUTH_SECRET
         value: use_uma_chave_secreta_muito_forte_aqui
+      - key: PRISMA_GENERATE_DATAPROXY
+        value: true
     disk:
       name: sqlite
       mountPath: /opt/render/project/src/prisma
