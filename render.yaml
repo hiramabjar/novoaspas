@@ -1,35 +1,32 @@
 services:
   - type: web
-    name: nextjs-app
+    name: novoaspas
     env: node
+    plan: free
     buildCommand: |
       npm install &&
-      mkdir -p /opt/render/project/src/prisma &&
-      chmod -R 777 /opt/render/project/src/prisma &&
-      touch /opt/render/project/src/prisma/prod.db &&
-      chmod 777 /opt/render/project/src/prisma/prod.db &&
       npx prisma generate &&
       npx prisma migrate deploy &&
       npx prisma db seed &&
-      NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 npm run build
-    startCommand: NODE_ENV=production npm run start
+      npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: file:/opt/render/project/src/prisma/prod.db
+        fromDatabase:
+          name: novoaspas-db
+          property: connectionString
       - key: NEXTAUTH_URL
         value: https://novoaspas.onrender.com
       - key: NEXTAUTH_SECRET
         value: ywxYI9zM8wSLswL54souB+WvwvjmyJ7I0pGVKKv8VuU=
-      - key: NEXT_TELEMETRY_DISABLED
-        value: "1"
       - key: NEXT_PUBLIC_API_URL
         value: https://novoaspas.onrender.com
-    disk:
-      name: sqlite
-      mountPath: /opt/render/project/src/prisma
-      sizeGB: 1
-    autoDeploy: true 
+
+  - type: postgres
+    name: novoaspas-db
+    plan: free
+    ipAllowList: [] 
