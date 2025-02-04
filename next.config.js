@@ -7,6 +7,12 @@ const nextConfig = {
   images: {
     domains: ['github.com'],
   },
+  // Disable static exports for API routes
+  exportPathMap: async function() {
+    return {
+      '/': { page: '/' },
+    }
+  }
 }
 
 module.exports = nextConfig 
