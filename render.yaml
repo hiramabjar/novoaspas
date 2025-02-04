@@ -1,4 +1,9 @@
 services:
+  - type: postgres
+    name: novoaspas-db
+    plan: free
+    ipAllowList: []
+
   - type: web
     name: novoaspas
     env: node
@@ -25,8 +30,5 @@ services:
         value: ywxYI9zM8wSLswL54souB+WvwvjmyJ7I0pGVKKv8VuU=
       - key: NEXT_PUBLIC_API_URL
         value: https://novoaspas.onrender.com
-
-  - type: postgres
-    name: novoaspas-db
-    plan: free
-    ipAllowList: [] 
+    dependencies:
+      - novoaspas-db 
