@@ -1,20 +1,12 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
-  "env": {
-    "NEXTAUTH_URL": "https://seu-app.vercel.app",
-    "NEXT_PUBLIC_API_URL": "https://seu-app.vercel.app"
-  },
+  "framework": "nextjs",
   "regions": ["gru1"],
-  "functions": {
-    "api/**/*.ts": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
+  "buildCommand": "npm install && npx prisma generate && next build",
+  "installCommand": "npm install",
+  "env": {
+    "NEXTAUTH_URL": "https://copia5-db.vercel.app",
+    "NEXT_PUBLIC_API_URL": "https://copia5-db.vercel.app",
+    "PRISMA_GENERATE_DATAPROXY": "true"
   }
 } 
