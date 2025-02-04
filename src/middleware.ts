@@ -2,13 +2,16 @@ import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-function corsMiddleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const response = NextResponse.next()
   
   response.headers.set('Access-Control-Allow-Credentials', 'true')
   response.headers.set('Access-Control-Allow-Origin', '*')
   response.headers.set('Access-Control-Allow-Methods', 'GET,DELETE,PATCH,POST,PUT')
   response.headers.set('Access-Control-Allow-Headers', 'Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date')
+  
+  response.headers.set('Cache-Control', 'no-store, must-revalidate')
+  response.headers.set('Pragma', 'no-cache')
   
   return response
 }
@@ -22,7 +25,7 @@ export default withAuth(
       return NextResponse.redirect(new URL('/login', req.url))
     }
 
-    return corsMiddleware(req)
+    return middleware(req)
   },
   {
     callbacks: {
@@ -34,6 +37,7 @@ export default withAuth(
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/api/:path*'
+    '/api/:path*',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ]
 } 

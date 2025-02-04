@@ -33,7 +33,8 @@ module.exports = {
       }
     ]
   },
-  experimental: {
-    ...nextConfig.experimental,
-  }
+  poweredByHeader: false,
+  generateEtags: false,
+  distDir: '.next',
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
 } 
