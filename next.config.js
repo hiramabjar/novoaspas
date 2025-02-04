@@ -5,7 +5,6 @@ const nextConfig = {
     domains: ['github.com'],
   },
   experimental: {
-    serverActions: true,
     serverComponentsExternalPackages: ['@prisma/client']
   },
   typescript: {
@@ -14,7 +13,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true
   },
-  staticPageGenerationTimeout: 1000
+  staticPageGenerationTimeout: 1000,
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  }
 }
 
 module.exports = nextConfig 

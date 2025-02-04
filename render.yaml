@@ -11,8 +11,8 @@ services:
       npx prisma generate &&
       npx prisma migrate deploy &&
       npx prisma db seed &&
-      NODE_OPTIONS='--max_old_space_size=4096' NEXT_TELEMETRY_DISABLED=1 npm run build
-    startCommand: npm run start
+      NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 npm run build
+    startCommand: NODE_ENV=production npm run start
     envVars:
       - key: NODE_ENV
         value: production
@@ -26,8 +26,6 @@ services:
         value: ywxYI9zM8wSLswL54souB+WvwvjmyJ7I0pGVKKv8VuU=
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
-      - key: NEXT_SHARP_PATH
-        value: /opt/render/project/src/node_modules/sharp
       - key: NEXT_PUBLIC_API_URL
         value: https://novoaspas.onrender.com
     disk:
