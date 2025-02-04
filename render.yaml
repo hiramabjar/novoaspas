@@ -10,7 +10,7 @@ services:
       npm install &&
       npx prisma generate &&
       npx prisma migrate reset --force &&
-      NODE_OPTIONS='--max_old_space_size=4096' NEXT_TELEMETRY_DISABLED=1 npm run build
+      NODE_OPTIONS='--max_old_space_size=4096' NEXT_TELEMETRY_DISABLED=1 NEXT_SHARP_PATH=/opt/render/project/src/node_modules/sharp npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
@@ -18,11 +18,15 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        value: file:./prisma/dev.db
+        value: file:/opt/render/project/src/prisma/dev.db
       - key: NEXTAUTH_URL
         value: https://novoaspas.onrender.com
       - key: NEXTAUTH_SECRET
         value: ywxYI9zM8wSLswL54souB+WvwvjmyJ7I0pGVKKv8VuU=
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: NEXT_SHARP_PATH
+        value: /opt/render/project/src/node_modules/sharp
     disk:
       name: sqlite
       mountPath: /opt/render/project/src/prisma
