@@ -1,77 +1,76 @@
 import NextAuth from 'next-auth'
+import { AuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import { PrismaAdapter } from '@next-auth/prisma-adapter'
+import { prisma } from '@/lib/database/prisma'
+import { compare } from 'bcryptjs'
 
-const handler = NextAuth({
+export const authOptions: AuthOptions = {
+  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: 'credentials',
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        email: { label: 'Email', type: 'text' },
+        password: { label: 'Password', type: 'password' }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Credenciais inválidas')
+          throw new Error('Invalid credentials')
         }
 
-        // Aqui você deve implementar a lógica real de verificação com seu banco de dados
-        // Este é apenas um exemplo para teste
-        const adminUser = {
-          email: 'admin@example.com',
-          password: 'admin123'
-        }
-
-        const studentUser = {
-          email: 'student@example.com',
-          password: 'student123'
-        }
-
-        if (credentials.email === adminUser.email && credentials.password === adminUser.password) {
-          return {
-            id: '1',
-            email: adminUser.email,
-            name: 'Admin User',
-            role: 'admin'
+        const user = await prisma.user.findUnique({
+          where: {
+            email: credentials.email
           }
+        })
+
+        if (!user || !user?.password) {
+          throw new Error('Invalid credentials')
         }
 
-        if (credentials.email === studentUser.email && credentials.password === studentUser.password) {
-          return {
-            id: '2',
-            email: studentUser.email,
-            name: 'Student User',
-            role: 'student'
-          }
+        const isCorrectPassword = await compare(
+          credentials.password,
+          user.password
+        )
+
+        if (!isCorrectPassword) {
+          throw new Error('Invalid credentials')
         }
 
-        throw new Error('Credenciais inválidas')
+        return {
+          id: user.id,
+          email: user.email || '',
+          name: user.name || '',
+          role: user.role
+        }
       }
     })
   ],
-  session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 dias
-  },
   pages: {
     signIn: '/auth/login',
   },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
         token.role = user.role
       }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as 'admin' | 'student'
+        session.user.role = token.role as string
       }
       return session
     }
   },
+  debug: process.env.NODE_ENV === 'development',
+  session: {
+    strategy: "jwt",
+  },
   secret: process.env.NEXTAUTH_SECRET,
-})
+}
+
+const handler = NextAuth(authOptions)
 
 export { handler as GET, handler as POST } 
