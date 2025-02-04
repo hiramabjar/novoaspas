@@ -10,6 +10,7 @@ services:
       npm install &&
       npx prisma generate &&
       npx prisma migrate reset --force &&
+      npx prisma db seed &&
       NODE_OPTIONS='--max_old_space_size=4096' NEXT_TELEMETRY_DISABLED=1 NEXT_SHARP_PATH=/opt/render/project/src/node_modules/sharp npm run build
     startCommand: npm run start
     envVars:
