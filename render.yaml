@@ -16,17 +16,13 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3000
+        value: 10000
       - key: DATABASE_URL
-        value: file:/opt/render/project/src/prisma/prod.db
+        value: file:./prisma/dev.db
       - key: NEXTAUTH_URL
         value: https://novoaspas.onrender.com
       - key: NEXTAUTH_SECRET
-        value: use_uma_chave_secreta_muito_forte_aqui
-      - key: NEXT_TELEMETRY_DISABLED
-        value: "1"
-      - key: NEXT_SHARP_PATH
-        value: /opt/render/project/src/node_modules/sharp
+        value: ywxYI9zM8wSLswL54souB+WvwvjmyJ7I0pGVKKv8VuU=
     disk:
       name: sqlite
       mountPath: /opt/render/project/src/prisma
