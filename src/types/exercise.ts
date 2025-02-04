@@ -46,8 +46,22 @@ export interface ExerciseWithRelations extends Exercise {
   module?: Module
 }
 
+export type ExerciseFormData = {
+  title: string
+  description: string
+  content: string
+  type: 'reading' | 'listening' | 'dictation'
+  languageId: string
+  levelId: string
+  questions: {
+    question: string
+    options: any
+    correctAnswer: string
+  }[]
+}
+
 export interface ExerciseFormProps {
   exercise?: ExerciseWithRelations
-  onSubmit?: (data: any) => Promise<void>
+  onSubmit?: (data: ExerciseFormData) => Promise<void>
   onSuccess?: () => void
 } 

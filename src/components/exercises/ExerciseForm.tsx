@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LANGUAGES, LEVELS } from '@/lib/constants'
-import type { ExerciseWithRelations } from '@/types/exercise'
+import type { ExerciseWithRelations, ExerciseFormData } from '@/types/exercise'
 
 const exerciseSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -26,8 +26,6 @@ const exerciseSchema = z.object({
   }))
 })
 
-type ExerciseFormData = z.infer<typeof exerciseSchema>
-
 export interface ExerciseFormProps {
   exercise?: ExerciseWithRelations
   onSubmit?: (data: ExerciseFormData) => Promise<void>
@@ -35,7 +33,7 @@ export interface ExerciseFormProps {
 }
 
 export function ExerciseForm({ exercise, onSubmit, onSuccess }: ExerciseFormProps) {
-  const [questions, setQuestions] = useState<any[]>(
+  const [questions, setQuestions] = useState<ExerciseFormData['questions']>(
     exercise?.questions?.map(q => ({
       question: q.question,
       options: q.options,

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import type { Exercise } from '@/types/exercise'
+import type { ExerciseWithRelations } from '@/types/exercise'
 
 export default function ExercisesPage() {
   const queryClient = useQueryClient()
@@ -18,7 +18,7 @@ export default function ExercisesPage() {
     queryClient.invalidateQueries({ queryKey: ['exercises'] })
   }, [queryClient])
 
-  const { data: exercises, isLoading } = useQuery<Exercise[]>({
+  const { data: exercises, isLoading } = useQuery<ExerciseWithRelations[]>({
     queryKey: ['exercises'],
     queryFn: async () => {
       const response = await fetch('/api/exercises')
@@ -135,13 +135,13 @@ export default function ExercisesPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">Idioma:</span>
                   <span className="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-                    {exercise.language.name}
+                    {exercise.language?.name || 'N/A'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">Nível:</span>
                   <span className="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-                    {exercise.level.name}
+                    {exercise.level?.name || 'N/A'}
                   </span>
                 </div>
               </div>

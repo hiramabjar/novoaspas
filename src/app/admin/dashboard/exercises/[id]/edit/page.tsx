@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ExerciseForm } from '@/components/exercises/ExerciseForm'
 import { Spinner } from '@/components/ui/spinner'
 import { Alert } from '@/components/ui/alert'
-import type { ExerciseWithRelations } from '@/types/exercise'
+import type { ExerciseWithRelations, ExerciseFormData } from '@/types/exercise'
 
 export default function EditExercisePage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -32,7 +32,7 @@ export default function EditExercisePage({ params }: { params: { id: string } })
     fetchExercise()
   }, [params.id])
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: ExerciseFormData) => {
     try {
       const response = await fetch(`/api/admin/exercises/${params.id}`, {
         method: 'PUT',
