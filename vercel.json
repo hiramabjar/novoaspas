@@ -2,11 +2,11 @@
   "version": 2,
   "framework": "nextjs",
   "regions": ["gru1"],
-  "buildCommand": "npm install && npx prisma generate && next build",
-  "installCommand": "npm install",
+  "buildCommand": "npx prisma generate && next build",
   "env": {
     "NEXTAUTH_URL": "https://copia5-db.vercel.app",
     "NEXT_PUBLIC_API_URL": "https://copia5-db.vercel.app",
-    "PRISMA_GENERATE_DATAPROXY": "true"
+    "PRISMA_GENERATE_DATAPROXY": "true",
+    "NODE_ENV": "production"
   }
 } 

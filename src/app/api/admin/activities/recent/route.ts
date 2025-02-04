@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const revalidate = 0
+
 interface RecentActivity {
   id: string
   studentName: string
@@ -12,23 +16,44 @@ interface RecentActivity {
 
 export async function GET() {
   try {
-    const activities = await prisma.$queryRaw<RecentActivity[]>`
-      SELECT 
-        ea.id,
-        COALESCE(u.name, 'Anonymous User') as "studentName",
-        COALESCE(e.title, 'Removed Exercise') as "exerciseTitle",
-        COALESCE(e.type, 'unknown') as "type",
-        ea.score,
-        ea."completedAt"
-      FROM "ExerciseAttempt" ea
-      LEFT JOIN "User" u ON ea."userId" = u.id
-      LEFT JOIN "Exercise" e ON ea."exerciseId" = e.id
-      WHERE ea."completedAt" IS NOT NULL
-      ORDER BY ea."completedAt" DESC
-      LIMIT 10
-    `
+    const activities = await prisma.exerciseAttempt.findMany({
+      where: {
+        completedAt: {
+          not: null
+        }
+      },
+      select: {
+        id: true,
+        score: true,
+        completedAt: true,
+        user: {
+          select: {
+            name: true
+          }
+        },
+        exercise: {
+          select: {
+            title: true,
+            type: true
+          }
+        }
+      },
+      orderBy: {
+        completedAt: 'desc'
+      },
+      take: 10
+    })
 
-    return NextResponse.json(activities)
+    const formattedActivities: RecentActivity[] = activities.map(activity => ({
+      id: activity.id,
+      studentName: activity.user?.name || 'Anonymous User',
+      exerciseTitle: activity.exercise?.title || 'Removed Exercise',
+      type: activity.exercise?.type || 'unknown',
+      score: activity.score,
+      completedAt: activity.completedAt!
+    }))
+
+    return NextResponse.json(formattedActivities)
   } catch (error) {
     console.error('Error fetching recent activities:', error)
     return NextResponse.json(
