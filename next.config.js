@@ -4,17 +4,18 @@ const nextConfig = {
   images: {
     domains: ['github.com'],
   },
-  // Disable static generation for API routes and dynamic pages
-  generateStaticParams: async () => {
-    return []
-  },
-  // Force dynamic rendering for specific routes
-  unstable_runtimeJS: true,
-  unstable_allowDynamic: [
-    '/api/**',
-    '/admin/**',
-    '/dashboard/**'
-  ]
+  // Disable static generation
+  staticPageGenerationTimeout: 1000,
+  experimental: {
+    // Enable streaming
+    serverActions: {
+      bodySizeLimit: '2mb'
+    },
+    // Prevent static generation
+    isrMemoryCacheSize: 0,
+    workerThreads: false,
+    cpus: 1
+  }
 }
 
 module.exports = nextConfig 
