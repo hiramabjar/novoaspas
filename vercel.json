@@ -1,13 +1,12 @@
 {
-  "version": 2,
   "framework": "nextjs",
   "regions": ["gru1"],
-  "buildCommand": "npx prisma generate && npx prisma db push --accept-data-loss && npx prisma db seed && next build",
+  "buildCommand": "npx prisma generate && next build",
   "env": {
-    "NEXTAUTH_URL": "https://copia5-db.vercel.app",
-    "NEXT_PUBLIC_API_URL": "https://copia5-db.vercel.app",
     "PRISMA_GENERATE_DATAPROXY": "true",
-    "PRISMA_CLIENT_ENGINE_TYPE": "dataproxy",
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_API_URL": "https://v-learning.vercel.app/api",
+    "NEXTAUTH_URL": "https://v-learning.vercel.app",
+    "DATABASE_URL": "postgres://default:Hs4Hs4Hs4@ep-polished-poetry-a4qqvlqr.us-east-1.aws.neon.tech:5432/verceldb?sslmode=require"
   }
 } 
