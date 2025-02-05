@@ -52,31 +52,34 @@ async function main() {
 
     // Criar usuário admin
     const adminPassword = await hash('admin123', 12)
-    await prisma.user.upsert({
+    const admin = await prisma.user.upsert({
       where: { email: 'admin@example.com' },
       update: {},
       create: {
-        id: '1', // ID fixo para admin
         email: 'admin@example.com',
         name: 'Admin User',
         password: adminPassword,
         role: 'admin'
       }
     })
+    console.log('Admin user created:', admin)
 
     // Criar usuário estudante
     const studentPassword = await hash('student123', 12)
-    await prisma.user.upsert({
+    const student = await prisma.user.upsert({
       where: { email: 'student@example.com' },
       update: {},
       create: {
-        id: '2', // ID fixo para estudante
         email: 'student@example.com',
         name: 'Student User',
         password: studentPassword,
-        role: 'student'
+        role: 'student',
+        studentProfile: {
+          create: {}
+        }
       }
     })
+    console.log('Student user created:', student)
 
     // Criar idiomas
     for (const language of LANGUAGES) {
@@ -140,15 +143,9 @@ async function main() {
       }
     })
 
-    console.log('Seed completed successfully:', {
-      languages: await prisma.language.findMany(),
-      levels: await prisma.level.findMany(),
-      modules: await prisma.module.findMany()
-    })
-
-    console.log('Seed executado com sucesso!')
+    console.log('Seed completed successfully!')
   } catch (error) {
-    console.error('Erro durante o seed:', error)
+    console.error('Error during seed:', error)
     throw error
   }
 }

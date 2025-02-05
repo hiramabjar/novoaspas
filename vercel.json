@@ -2,7 +2,7 @@
   "version": 2,
   "framework": "nextjs",
   "regions": ["gru1"],
-  "buildCommand": "npx prisma generate && npx prisma db push --accept-data-loss && next build",
+  "buildCommand": "npx prisma generate && npx prisma db push --accept-data-loss && npx prisma db seed && next build",
   "env": {
     "NEXTAUTH_URL": "https://copia5-db.vercel.app",
     "NEXT_PUBLIC_API_URL": "https://copia5-db.vercel.app",
